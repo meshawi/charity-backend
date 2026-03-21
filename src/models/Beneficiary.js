@@ -1,0 +1,214 @@
+const { DataTypes } = require("sequelize");
+const sequelize = require("../config/database");
+
+const Beneficiary = sequelize.define(
+  "Beneficiary",
+  {
+    id: {
+      type: DataTypes.INTEGER,
+      primaryKey: true,
+      autoIncrement: true,
+    },
+    beneficiaryNumber: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      unique: true,
+      comment: "رقم المستفيد",
+    },
+    name: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      comment: "الإسم",
+    },
+    categoryId: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      comment: "الفئة",
+    },
+    gender: {
+      type: DataTypes.ENUM("male", "female"),
+      allowNull: true,
+      comment: "النوع",
+    },
+    dateOfBirth: {
+      type: DataTypes.DATEONLY,
+      allowNull: true,
+      comment: "تاريخ الميلاد",
+    },
+    maritalStatus: {
+      type: DataTypes.ENUM("married", "single", "divorced", "widowed", "abandoned"),
+      allowNull: true,
+      comment: "الحالة الاجتماعية",
+    },
+    nationalId: {
+      type: DataTypes.STRING(10),
+      allowNull: false,
+      unique: true,
+      comment: "رقم الهوية",
+    },
+    phone: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      comment: "رقم الجوال",
+    },
+    otherPhone: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      comment: "جوال آخر",
+    },
+    familyCount: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      comment: "عدد الأسرة",
+    },
+    dependentsCount: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      comment: "عدد التابعين",
+    },
+    iban: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      comment: "رقم الآيبان",
+    },
+    bank: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      comment: "البنك",
+    },
+    // --- جهة السكن ---
+    residenceArea: {
+      type: DataTypes.ENUM(
+        "aldeira", "aladwa", "alrashidia", "alabadia",
+        "alsaadoon", "aliskan", "aldahia", "aldana", "other"
+      ),
+      allowNull: true,
+      comment: "جهة السكن بالطرف",
+    },
+    residenceAreaOther: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      comment: "جهة السكن — أخرى",
+    },
+    // --- الحالة السكنية ---
+    buildingOwnership: {
+      type: DataTypes.ENUM("private", "shared", "rented"),
+      allowNull: true,
+      comment: "ملكية البناء",
+    },
+    buildingType: {
+      type: DataTypes.ENUM("arabic", "concrete", "other"),
+      allowNull: true,
+      comment: "نوع البناء",
+    },
+    buildingTypeOther: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      comment: "نوع البناء — أخرى",
+    },
+    buildingCondition: {
+      type: DataTypes.ENUM("good", "average", "needs_repair"),
+      allowNull: true,
+      comment: "حالة البناء",
+    },
+    buildingCapacity: {
+      type: DataTypes.ENUM("small", "medium", "sufficient"),
+      allowNull: true,
+      comment: "اتساع البناء",
+    },
+    // --- الزيارات الدينية (JSON) ---
+    husbandReligious: {
+      type: DataTypes.JSON,
+      allowNull: true,
+      comment: "الزيارات الدينية — الزوج: {hajj,umrah,prophetMosque}",
+    },
+    wifeReligious: {
+      type: DataTypes.JSON,
+      allowNull: true,
+      comment: "الزيارات الدينية — الزوجة: {hajj,umrah,prophetMosque}",
+    },
+    // --- الأثاث والأجهزة والممتلكات (JSON) ---
+    furnitureAppliances: {
+      type: DataTypes.JSON,
+      allowNull: true,
+      comment: "الأثاث والأجهزة — كل عنصر: {good,unavailable,needsRepair,needsReplacement,notes}",
+    },
+    // --- مصادر الدخل (JSON) ---
+    incomeSources: {
+      type: DataTypes.JSON,
+      allowNull: true,
+      comment: "مصادر الدخل — كل مصدر: {monthly,yearly,notes}",
+    },
+    // --- الالتزامات المالية (JSON) ---
+    financialObligations: {
+      type: DataTypes.JSON,
+      allowNull: true,
+      comment: "الالتزامات المالية — كل بند: {monthly,yearly,notes}",
+    },
+    // --- حقول عامة ---
+    healthStatus: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+      comment: "الحالة الصحية",
+    },
+    origin: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      comment: "الأصل",
+    },
+    attributes: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+      comment: "الصفات",
+    },
+    enrollment: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      comment: "الالتحاق",
+    },
+    visitDate: {
+      type: DataTypes.DATEONLY,
+      allowNull: true,
+      comment: "تاريخ الزيارة",
+    },
+    updateDone: {
+      type: DataTypes.DATEONLY,
+      allowNull: true,
+      comment: "تحديث تم",
+    },
+    nextUpdate: {
+      type: DataTypes.DATEONLY,
+      allowNull: true,
+      comment: "التحديث القادم",
+    },
+    specialDate: {
+      type: DataTypes.DATEONLY,
+      allowNull: true,
+      comment: "تاريخ خاص",
+    },
+    familySkillsTalents: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+      comment: "المهن والمواهب لأفراد العائلة",
+    },
+    researcherNotes: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+      comment: "ملاحظات وتوصيات وشروح الباحث",
+    },
+    notes: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+      comment: "ملاحظات",
+    },
+    createdById: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+    },
+  },
+  {
+    timestamps: true,
+  }
+);
+
+module.exports = Beneficiary;

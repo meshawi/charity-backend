@@ -1,0 +1,29 @@
+const express = require("express");
+const router = express.Router();
+const authRoutes = require("./authRoutes");
+const userRoutes = require("./userRoutes");
+const beneficiaryRoutes = require("./beneficiaryRoutes");
+const dependentRoutes = require("./dependentRoutes");
+const documentRoutes = require("./documentRoutes");
+const fieldConfigRoutes = require("./fieldConfigRoutes");
+const categoryRoutes = require("./categoryRoutes");
+const programRoutes = require("./programRoutes");
+const disbursementRoutes = require("./disbursementRoutes");
+const roleRoutes = require("./roleRoutes");
+const reportRoutes = require("./reportRoutes");
+const dashboardRoutes = require("./dashboardRoutes");
+
+router.use("/auth", authRoutes);
+router.use("/users", userRoutes);
+router.use("/beneficiaries", beneficiaryRoutes);
+router.use("/beneficiaries/:beneficiaryId/dependents", dependentRoutes);
+router.use("/beneficiaries/:beneficiaryId/documents", documentRoutes);
+router.use("/field-config", fieldConfigRoutes);
+router.use("/categories", categoryRoutes);
+router.use("/programs", programRoutes);
+router.use("/disbursements", disbursementRoutes);
+router.use("/roles", roleRoutes);
+router.use("/reports", reportRoutes);
+router.use("/dashboard", dashboardRoutes);
+
+module.exports = router;
