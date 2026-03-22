@@ -2,7 +2,6 @@ const jwt = require("jsonwebtoken");
 const { Op } = require("sequelize");
 const { User, Role, Permission } = require("../models");
 const { AuthenticationError } = require("../utils/errors");
-const auditService = require("../services/auditService");
 
 const TOKEN_EXPIRY = 6 * 60 * 60 * 1000; // 6 hours in milliseconds
 
@@ -23,8 +22,8 @@ const getUserData = (user) => {
     email: user.email,
     nationalId: user.nationalId,
     name: user.name,
-    avatar: user.avatar,
     createdAt: user.createdAt,
+    isSuperAdmin: user.isSuperAdmin || false,
     roles: user.Roles.map((r) => r.name),
     permissions: Array.from(allPermissions.values()),
   };
@@ -49,19 +48,11 @@ const login = async (req, res, next) => {
     });
 
     if (!user) {
-      await auditService.logLogin(req, null, identifier, false, "المستخدم غير موجود");
       throw new AuthenticationError("بيانات الدخول غير صحيحة");
     }
 
     // Check if user is active
     if (!user.isActive) {
-      await auditService.logLogin(
-        req,
-        user.id,
-        identifier,
-        false,
-        "الحساب معطل"
-      );
       throw new AuthenticationError(
         "تم تعطيل حسابك. يرجى التواصل مع المسؤول."
       );
@@ -70,13 +61,6 @@ const login = async (req, res, next) => {
     const isValidPassword = await user.comparePassword(password);
 
     if (!isValidPassword) {
-      await auditService.logLogin(
-        req,
-        user.id,
-        identifier,
-        false,
-        "كلمة مرور خاطئة"
-      );
       throw new AuthenticationError("بيانات الدخول غير صحيحة");
     }
 
@@ -93,8 +77,6 @@ const login = async (req, res, next) => {
       maxAge: TOKEN_EXPIRY,
     });
 
-    await auditService.logLogin(req, user.id, user.email, true);
-
     res.json({
       success: true,
       message: "تم تسجيل الدخول بنجاح",
@@ -107,8 +89,6 @@ const login = async (req, res, next) => {
 
 const logout = async (req, res, next) => {
   try {
-    await auditService.logLogout(req);
-
     res.clearCookie("token", {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",

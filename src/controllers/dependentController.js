@@ -1,6 +1,6 @@
 const { Dependent, Beneficiary, FieldConfig } = require("../models");
 const { NotFoundError, ValidationError } = require("../utils/errors");
-const auditService = require("../services/auditService");
+const { calculateAge } = require("../utils/ageHelper");
 
 const getDependents = async (req, res, next) => {
   try {
@@ -14,7 +14,13 @@ const getDependents = async (req, res, next) => {
       order: [["createdAt", "ASC"]],
     });
 
-    res.json({ success: true, dependents });
+    const withAge = dependents.map((d) => {
+      const json = d.toJSON();
+      json.age = calculateAge(json.dateOfBirth);
+      return json;
+    });
+
+    res.json({ success: true, dependents: withAge });
   } catch (error) {
     next(error);
   }
@@ -48,11 +54,6 @@ const createDependent = async (req, res, next) => {
     const count = await Dependent.count({ where: { beneficiaryId } });
     await beneficiary.update({ dependentsCount: count });
 
-    await auditService.logCreate(req, "DEPENDENT", dependent.id, {
-      beneficiaryId,
-      name: dependent.name,
-    });
-
     res.status(201).json({ success: true, dependent });
   } catch (error) {
     next(error);
@@ -64,10 +65,7 @@ const updateDependent = async (req, res, next) => {
     const dependent = await Dependent.findByPk(req.params.dependentId);
     if (!dependent) throw new NotFoundError("التابع غير موجود");
 
-    const oldValues = dependent.toJSON();
     await dependent.update(req.body);
-
-    await auditService.logUpdate(req, "DEPENDENT", dependent.id, oldValues, dependent.toJSON());
 
     res.json({ success: true, dependent });
   } catch (error) {
@@ -81,14 +79,11 @@ const deleteDependent = async (req, res, next) => {
     if (!dependent) throw new NotFoundError("التابع غير موجود");
 
     const { beneficiaryId } = dependent;
-    const oldValues = dependent.toJSON();
     await dependent.destroy();
 
     // Update dependents count
     const count = await Dependent.count({ where: { beneficiaryId } });
     await Beneficiary.update({ dependentsCount: count }, { where: { id: beneficiaryId } });
-
-    await auditService.logDelete(req, "DEPENDENT", dependent.id, oldValues);
 
     res.json({ success: true, message: "تم حذف التابع" });
   } catch (error) {

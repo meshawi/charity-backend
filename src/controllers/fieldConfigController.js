@@ -1,5 +1,5 @@
 const { FieldConfig } = require("../models");
-const auditService = require("../services/auditService");
+const { NotFoundError, ValidationError } = require("../utils/errors");
 
 // Get all field configs
 const getFieldConfigs = async (req, res, next) => {
@@ -27,21 +27,15 @@ const updateFieldConfig = async (req, res, next) => {
 
     const config = await FieldConfig.findByPk(id);
     if (!config) {
-      return res.status(404).json({ success: false, message: "الحقل غير موجود" });
+      throw new NotFoundError("الحقل غير موجود");
     }
 
     // nationalId is always required
     if (config.fieldName === "nationalId" && !isRequired) {
-      return res.status(400).json({
-        success: false,
-        message: "رقم الهوية لا يمكن أن يكون اختياري",
-      });
+      throw new ValidationError("رقم الهوية لا يمكن أن يكون اختياري");
     }
 
-    const oldValue = config.isRequired;
     await config.update({ isRequired });
-
-    await auditService.logUpdate(req, "FIELD_CONFIG", config.id, { isRequired: oldValue }, { isRequired });
 
     res.json({ success: true, config });
   } catch (error) {
@@ -54,7 +48,7 @@ const bulkUpdateFieldConfigs = async (req, res, next) => {
   try {
     const { updates } = req.body; // [{ id, isRequired }]
     if (!Array.isArray(updates)) {
-      return res.status(400).json({ success: false, message: "البيانات غير صحيحة" });
+      throw new ValidationError("البيانات غير صحيحة");
     }
 
     for (const { id, isRequired } of updates) {

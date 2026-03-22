@@ -1,4 +1,4 @@
-const { User, Role } = require("../models");
+const { User, Role, Permission } = require("../models");
 const {
   ConflictError,
   ValidationError,
@@ -6,7 +6,7 @@ const {
   AuthenticationError,
   AuthorizationError,
 } = require("../utils/errors");
-const auditService = require("../services/auditService");
+const { SUPER_ADMIN_ROLE } = require("../utils/constants");
 
 const createUser = async (req, res, next) => {
   try {
@@ -34,13 +34,6 @@ const createUser = async (req, res, next) => {
     const user = await User.create({ email, nationalId, password, name });
     await user.addRoles(roles);
 
-    await auditService.logCreate(req, "USER", user.id, {
-      email: user.email,
-      nationalId: user.nationalId,
-      name: user.name,
-      roles: roles.map((r) => r.name),
-    });
-
     res.status(201).json({
       success: true,
       message: "تم إنشاء المستخدم بنجاح",
@@ -61,7 +54,7 @@ const createUser = async (req, res, next) => {
 const getUsers = async (req, res, next) => {
   try {
     const users = await User.findAll({
-      attributes: ["id", "email", "nationalId", "name", "avatar", "isActive", "createdAt"],
+      attributes: ["id", "email", "nationalId", "name", "isActive", "isSuperAdmin", "createdAt"],
       include: {
         model: Role,
         attributes: ["id", "name"],
@@ -75,52 +68,35 @@ const getUsers = async (req, res, next) => {
   }
 };
 
-const getUserById = async (req, res, next) => {
-  try {
-    const user = await User.findByPk(req.params.id, {
-      attributes: ["id", "email", "nationalId", "name", "isActive", "createdAt"],
-      include: {
-        model: Role,
-        attributes: ["id", "name"],
-        through: { attributes: [] },
-      },
-    });
-
-    if (!user) {
-      throw new NotFoundError("المستخدم غير موجود");
-    }
-
-    res.json({ success: true, user });
-  } catch (error) {
-    next(error);
-  }
-};
-
 const updateUser = async (req, res, next) => {
   try {
     const { id } = req.params;
     const { email, nationalId, name, isActive, roleIds } = req.body;
 
-    // Protect the seeded admin (user id=1)
-    if (parseInt(id) === 1 && req.user.id !== 1) {
-      throw new AuthorizationError("لا يمكن تعديل بيانات مدير النظام الأساسي");
-    }
-
-    const user = await User.findByPk(id, {
+    // Protect the super admin — only the super admin themselves can edit their own record
+    const targetUser = await User.findByPk(id, {
       include: { model: Role, through: { attributes: [] } },
     });
 
-    if (!user) {
+    if (!targetUser) {
       throw new NotFoundError("المستخدم غير موجود");
     }
 
-    const oldValues = {
-      email: user.email,
-      nationalId: user.nationalId,
-      name: user.name,
-      isActive: user.isActive,
-      roles: user.Roles.map((r) => r.name),
-    };
+    if (targetUser.isSuperAdmin && req.user.id !== targetUser.id) {
+      throw new AuthorizationError("لا يمكن تعديل بيانات مدير النظام الأساسي");
+    }
+
+    // Nobody can change SuperAdmin's roles or deactivate them
+    if (targetUser.isSuperAdmin) {
+      if (roleIds !== undefined) {
+        throw new AuthorizationError("لا يمكن تغيير أدوار مدير النظام الأساسي");
+      }
+      if (isActive === false) {
+        throw new AuthorizationError("لا يمكن تعطيل حساب مدير النظام الأساسي");
+      }
+    }
+
+    const user = targetUser;
 
     // Check email uniqueness if changing email
     if (email && email !== user.email) {
@@ -160,16 +136,6 @@ const updateUser = async (req, res, next) => {
       include: { model: Role, through: { attributes: [] } },
     });
 
-    const newValues = {
-      email: user.email,
-      nationalId: user.nationalId,
-      name: user.name,
-      isActive: user.isActive,
-      roles: user.Roles.map((r) => r.name),
-    };
-
-    await auditService.logUpdate(req, "USER", user.id, oldValues, newValues);
-
     res.json({
       success: true,
       message: "تم تحديث المستخدم بنجاح",
@@ -189,17 +155,20 @@ const updateUser = async (req, res, next) => {
 
 const changePassword = async (req, res, next) => {
   try {
-    const { newPassword } = req.body;
+    const { currentPassword, newPassword } = req.body;
+
+    if (!currentPassword || !newPassword) {
+      throw new ValidationError("كلمة المرور الحالية والجديدة مطلوبتان");
+    }
+
     const user = await User.findByPk(req.user.id);
 
-    await user.update({ password: newPassword });
+    const isValid = await user.comparePassword(currentPassword);
+    if (!isValid) {
+      throw new AuthenticationError("كلمة المرور الحالية غير صحيحة");
+    }
 
-    await auditService.log({
-      action: "CHANGE_PASSWORD",
-      entityType: "USER",
-      entityId: user.id,
-      ...auditService.getRequestInfo(req),
-    });
+    await user.update({ password: newPassword });
 
     // Clear the auth cookie to force logout
     res.clearCookie("token", {
@@ -222,76 +191,19 @@ const adminResetPassword = async (req, res, next) => {
     const { id } = req.params;
     const { newPassword } = req.body;
 
-    // Protect the seeded admin (user id=1)
-    if (parseInt(id) === 1 && req.user.id !== 1) {
-      throw new AuthorizationError("لا يمكن إعادة تعيين كلمة مرور مدير النظام الأساسي");
-    }
+    if (!newPassword) throw new ValidationError("كلمة المرور الجديدة مطلوبة");
 
     const user = await User.findByPk(id);
-    if (!user) {
-      throw new NotFoundError("المستخدم غير موجود");
+    if (!user) throw new NotFoundError("المستخدم غير موجود");
+
+    // Nobody can reset SuperAdmin's password through this endpoint
+    if (user.isSuperAdmin) {
+      throw new AuthorizationError("لا يمكن إعادة تعيين كلمة مرور مدير النظام الأساسي");
     }
 
     await user.update({ password: newPassword });
 
-    await auditService.log({
-      action: "ADMIN_RESET_PASSWORD",
-      entityType: "USER",
-      entityId: user.id,
-      newValues: { targetUserEmail: user.email },
-      ...auditService.getRequestInfo(req),
-    });
-
     res.json({ success: true, message: `تم إعادة تعيين كلمة مرور ${user.email}` });
-  } catch (error) {
-    next(error);
-  }
-};
-
-const updateProfile = async (req, res, next) => {
-  try {
-    const { avatar } = req.body;
-    const user = await User.findByPk(req.user.id);
-
-    const oldValues = { avatar: user.avatar };
-    await user.update({ avatar });
-
-    await auditService.log({
-      action: "UPDATE_PROFILE",
-      entityType: "USER",
-      entityId: user.id,
-      oldValues,
-      newValues: { avatar },
-      ...auditService.getRequestInfo(req),
-    });
-
-    res.json({
-      success: true,
-      message: "تم تحديث الملف الشخصي بنجاح",
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        avatar: user.avatar,
-      },
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
-const getProfile = async (req, res, next) => {
-  try {
-    const user = await User.findByPk(req.user.id, {
-      attributes: ["id", "email", "name", "avatar", "createdAt"],
-      include: {
-        model: Role,
-        attributes: ["id", "name"],
-        through: { attributes: [] },
-      },
-    });
-
-    res.json({ success: true, user });
   } catch (error) {
     next(error);
   }
@@ -300,10 +212,7 @@ const getProfile = async (req, res, next) => {
 module.exports = {
   createUser,
   getUsers,
-  getUserById,
   updateUser,
   changePassword,
   adminResetPassword,
-  updateProfile,
-  getProfile,
 };

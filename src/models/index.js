@@ -4,7 +4,6 @@ const Role = require("./Role");
 const Permission = require("./Permission");
 const RolePermission = require("./RolePermission");
 const UserRole = require("./UserRole");
-const AuditLog = require("./AuditLog");
 const Category = require("./Category");
 const Program = require("./Program");
 const ProgramCategory = require("./ProgramCategory");
@@ -65,7 +64,6 @@ module.exports = {
   Permission,
   RolePermission,
   UserRole,
-  AuditLog,
   Category,
   Program,
   ProgramCategory,

@@ -13,6 +13,8 @@ const {
 } = require("../models");
 const { ValidationError } = require("../utils/errors");
 const { createExcelBuffer } = require("../utils/excelHelper");
+const { calculateAge } = require("../utils/ageHelper");
+const { buildPagination } = require("../utils/pagination");
 
 const REPORTS_DIR = REPORTS_PATH;
 
@@ -115,6 +117,7 @@ const FILTER_FIELDS = [
     ],
   },
   { key: "dateOfBirth", label: "تاريخ الميلاد", type: "date", group: "أساسي" },
+  { key: "age", label: "العمر", type: "number", group: "أساسي" },
   {
     key: "maritalStatus",
     label: "الحالة الاجتماعية",
@@ -136,6 +139,21 @@ const FILTER_FIELDS = [
     type: "number",
     group: "أساسي",
   },
+  {
+    key: "status",
+    label: "حالة الملف",
+    type: "enum",
+    group: "أساسي",
+    options: [
+      { value: "draft", label: "مسودة" },
+      { value: "pending_review", label: "بانتظار المراجعة" },
+      { value: "returned", label: "مُعاد" },
+      { value: "approved", label: "مُعتمد" },
+    ],
+  },
+  // Financial
+  { key: "iban", label: "الآيبان", type: "text", group: "مالي" },
+  { key: "bank", label: "البنك", type: "text", group: "مالي" },
   // Housing
   {
     key: "residenceArea",
@@ -198,6 +216,8 @@ const FILTER_FIELDS = [
       { value: "sufficient", label: "يكفي" },
     ],
   },
+  // Health
+  { key: "healthStatus", label: "الحالة الصحية", type: "text", group: "صحي" },
   // Religious (JSON)
   {
     key: "husbandReligious.hajj.done",
@@ -280,6 +300,30 @@ const FILTER_FIELDS = [
       { value: "not_enrolled", label: "غير مسجل" },
     ],
   },
+  { key: "dependent.name", label: "اسم التابع", type: "text", group: "التابعين" },
+  { key: "dependent.nationalId", label: "هوية التابع", type: "text", group: "التابعين" },
+  { key: "dependent.dateOfBirth", label: "تاريخ ميلاد التابع", type: "date", group: "التابعين" },
+  { key: "dependent.age", label: "عمر التابع", type: "number", group: "التابعين" },
+  { key: "dependent.healthStatus", label: "الحالة الصحية للتابع", type: "text", group: "التابعين" },
+  { key: "dependent.dependentMaritalStatus", label: "الحالة الاجتماعية للتابع", type: "text", group: "التابعين" },
+  {
+    key: "dependent.religious.hajj.done",
+    label: "حج التابع",
+    type: "boolean",
+    group: "التابعين",
+  },
+  {
+    key: "dependent.religious.umrah.done",
+    label: "عمرة التابع",
+    type: "boolean",
+    group: "التابعين",
+  },
+  {
+    key: "dependent.religious.prophetMosque.done",
+    label: "المسجد النبوي (التابع)",
+    type: "boolean",
+    group: "التابعين",
+  },
 ];
 
 // Whitelists for security
@@ -294,6 +338,17 @@ const TYPE_OPERATORS = {
   boolean: ["eq"],
   category: ["eq", "in"],
   program: ["eq", "in"],
+};
+
+const OPERATOR_LABELS = {
+  eq: "يساوي",
+  ne: "لا يساوي",
+  gt: "أكبر من",
+  gte: "أكبر من أو يساوي",
+  lt: "أصغر من",
+  lte: "أصغر من أو يساوي",
+  like: "يحتوي على",
+  in: "ضمن",
 };
 
 // Direct DB columns that can be filtered
@@ -313,6 +368,9 @@ const DIRECT_COLUMNS = new Set([
   "buildingCondition",
   "buildingCapacity",
   "healthStatus",
+  "status",
+  "iban",
+  "bank",
 ]);
 
 // Valid dependent columns
@@ -321,6 +379,11 @@ const DEPENDENT_COLUMNS = new Set([
   "gender",
   "schoolType",
   "educationStatus",
+  "name",
+  "nationalId",
+  "dateOfBirth",
+  "healthStatus",
+  "dependentMaritalStatus",
 ]);
 
 // ── Filter builder ──
@@ -358,6 +421,61 @@ const buildWhereClause = (filters) => {
 
     if (f.field === "programId") {
       programFilter = { op, value: f.value };
+    } else if (f.field === "age") {
+      // Convert age to DOB range
+      const today = new Date();
+      const ageVal = parseInt(f.value);
+      if (!isNaN(ageVal)) {
+        if (!beneficiaryWhere[Op.and]) beneficiaryWhere[Op.and] = [];
+        if (op === "eq") {
+          const dobEnd = new Date(today.getFullYear() - ageVal, today.getMonth(), today.getDate());
+          const dobStart = new Date(today.getFullYear() - ageVal - 1, today.getMonth(), today.getDate() + 1);
+          beneficiaryWhere[Op.and].push({ dateOfBirth: { [Op.between]: [dobStart.toISOString().split("T")[0], dobEnd.toISOString().split("T")[0]] } });
+        } else if (op === "gte") {
+          // Age >= X means DOB <= (today - X years)
+          const dob = new Date(today.getFullYear() - ageVal, today.getMonth(), today.getDate());
+          beneficiaryWhere[Op.and].push({ dateOfBirth: { [Op.lte]: dob.toISOString().split("T")[0] } });
+        } else if (op === "lte") {
+          // Age <= X means DOB >= (today - X years)
+          const dob = new Date(today.getFullYear() - ageVal - 1, today.getMonth(), today.getDate() + 1);
+          beneficiaryWhere[Op.and].push({ dateOfBirth: { [Op.gte]: dob.toISOString().split("T")[0] } });
+        } else if (op === "gt") {
+          const dob = new Date(today.getFullYear() - ageVal - 1, today.getMonth(), today.getDate());
+          beneficiaryWhere[Op.and].push({ dateOfBirth: { [Op.lt]: dob.toISOString().split("T")[0] } });
+        } else if (op === "lt") {
+          const dob = new Date(today.getFullYear() - ageVal, today.getMonth(), today.getDate() + 1);
+          beneficiaryWhere[Op.and].push({ dateOfBirth: { [Op.gt]: dob.toISOString().split("T")[0] } });
+        }
+      }
+    } else if (f.field === "dependent.age") {
+      // Convert dependent age to DOB range
+      hasDependentFilter = true;
+      const today = new Date();
+      const ageVal = parseInt(f.value);
+      if (!isNaN(ageVal)) {
+        if (op === "eq") {
+          const dobEnd = new Date(today.getFullYear() - ageVal, today.getMonth(), today.getDate());
+          const dobStart = new Date(today.getFullYear() - ageVal - 1, today.getMonth(), today.getDate() + 1);
+          dependentWhere.dateOfBirth = { [Op.between]: [dobStart.toISOString().split("T")[0], dobEnd.toISOString().split("T")[0]] };
+        } else if (op === "gte") {
+          dependentWhere.dateOfBirth = { ...dependentWhere.dateOfBirth, [Op.lte]: new Date(today.getFullYear() - ageVal, today.getMonth(), today.getDate()).toISOString().split("T")[0] };
+        } else if (op === "lte") {
+          dependentWhere.dateOfBirth = { ...dependentWhere.dateOfBirth, [Op.gte]: new Date(today.getFullYear() - ageVal - 1, today.getMonth(), today.getDate() + 1).toISOString().split("T")[0] };
+        }
+      }
+    } else if (f.field.startsWith("dependent.religious.")) {
+      // Dependent JSON boolean filter
+      hasDependentFilter = true;
+      const parts = f.field.replace("dependent.", "").split(".");
+      const column = parts[0];
+      const jsonPath = "$." + parts.slice(1).join(".");
+      const boolStr = f.value === true || f.value === "true" ? "true" : "false";
+      if (!dependentWhere[Op.and]) dependentWhere[Op.and] = [];
+      dependentWhere[Op.and].push(
+        sequelize.literal(
+          `JSON_UNQUOTE(JSON_EXTRACT(\`Dependent\`.\`${column}\`, '${jsonPath}')) = '${boolStr}'`
+        )
+      );
     } else if (f.field.startsWith("dependent.")) {
       const col = f.field.replace("dependent.", "");
       if (!DEPENDENT_COLUMNS.has(col)) continue;
@@ -395,7 +513,10 @@ const getFilterFields = async (req, res, next) => {
 
     const fields = FILTER_FIELDS.map((f) => ({
       ...f,
-      operators: TYPE_OPERATORS[f.type] || ["eq"],
+      operators: (TYPE_OPERATORS[f.type] || ["eq"]).map((op) => ({
+        value: op,
+        label: OPERATOR_LABELS[op] || op,
+      })),
       ...(f.key === "categoryId" && {
         options: categories.map((c) => ({ value: c.id, label: c.name })),
       }),
@@ -414,7 +535,7 @@ const getFilterFields = async (req, res, next) => {
 
 const filterBeneficiaries = async (req, res, next) => {
   try {
-    const { filters = [], search, page = 1, limit = 20 } = req.body;
+    const { filters = [], search, page = 1, limit = 20, disbursementStatus } = req.body;
     const offset = (page - 1) * limit;
 
     const { beneficiaryWhere, dependentWhere, hasDependentFilter, programFilter } =
@@ -433,6 +554,19 @@ const filterBeneficiaries = async (req, res, next) => {
       });
     }
 
+    // Disbursement status filter: "received" or "not_received"
+    if (disbursementStatus === "received") {
+      if (!beneficiaryWhere[Op.and]) beneficiaryWhere[Op.and] = [];
+      beneficiaryWhere[Op.and].push({
+        id: { [Op.in]: sequelize.literal("(SELECT DISTINCT `beneficiaryId` FROM `Disbursements`)") },
+      });
+    } else if (disbursementStatus === "not_received") {
+      if (!beneficiaryWhere[Op.and]) beneficiaryWhere[Op.and] = [];
+      beneficiaryWhere[Op.and].push({
+        id: { [Op.notIn]: sequelize.literal("(SELECT DISTINCT `beneficiaryId` FROM `Disbursements`)") },
+      });
+    }
+
     // Program filter → find beneficiaries who received certain programs
     if (programFilter) {
       const progWhere = {};
@@ -448,12 +582,7 @@ const filterBeneficiaries = async (req, res, next) => {
         return res.json({
           success: true,
           beneficiaries: [],
-          pagination: {
-            total: 0,
-            page: parseInt(page),
-            limit: parseInt(limit),
-            totalPages: 0,
-          },
+          pagination: buildPagination(0, page, limit),
         });
       }
       if (beneficiaryWhere.id) {
@@ -478,12 +607,7 @@ const filterBeneficiaries = async (req, res, next) => {
         return res.json({
           success: true,
           beneficiaries: [],
-          pagination: {
-            total: 0,
-            page: parseInt(page),
-            limit: parseInt(limit),
-            totalPages: 0,
-          },
+          pagination: buildPagination(0, page, limit),
         });
       }
       beneficiaryWhere.id = { [Op.in]: ids };
@@ -506,13 +630,12 @@ const filterBeneficiaries = async (req, res, next) => {
 
     res.json({
       success: true,
-      beneficiaries: rows,
-      pagination: {
-        total: count,
-        page: parseInt(page),
-        limit: parseInt(limit),
-        totalPages: Math.ceil(count / limit),
-      },
+      beneficiaries: rows.map((b) => {
+        const json = b.toJSON();
+        json.age = calculateAge(json.dateOfBirth);
+        return json;
+      }),
+      pagination: buildPagination(count, page, limit),
     });
   } catch (error) {
     next(error);
@@ -524,9 +647,22 @@ const filterBeneficiaries = async (req, res, next) => {
 const exportBeneficiariesReport = async (req, res, next) => {
   try {
     cleanOldFiles(REPORTS_DIR, 24);
-    const { filters = [] } = req.body;
+    const { filters = [], disbursementStatus } = req.body;
     const { beneficiaryWhere, dependentWhere, hasDependentFilter, programFilter } =
       buildWhereClause(filters);
+
+    // Disbursement status filter: "received" or "not_received"
+    if (disbursementStatus === "received") {
+      if (!beneficiaryWhere[Op.and]) beneficiaryWhere[Op.and] = [];
+      beneficiaryWhere[Op.and].push({
+        id: { [Op.in]: sequelize.literal("(SELECT DISTINCT `beneficiaryId` FROM `Disbursements`)") },
+      });
+    } else if (disbursementStatus === "not_received") {
+      if (!beneficiaryWhere[Op.and]) beneficiaryWhere[Op.and] = [];
+      beneficiaryWhere[Op.and].push({
+        id: { [Op.notIn]: sequelize.literal("(SELECT DISTINCT `beneficiaryId` FROM `Disbursements`)") },
+      });
+    }
 
     // Program filter → find beneficiaries who received certain programs
     if (programFilter) {
@@ -591,7 +727,9 @@ const exportBeneficiariesReport = async (req, res, next) => {
       { header: "رقم الهوية", key: "nationalId", width: 14 },
       { header: "النوع", key: "gender", width: 10 },
       { header: "تاريخ الميلاد", key: "dateOfBirth", width: 14 },
+      { header: "العمر", key: "age", width: 8 },
       { header: "الحالة الاجتماعية", key: "maritalStatus", width: 14 },
+      { header: "حالة الملف", key: "status", width: 14 },
       { header: "الفئة", key: "category", width: 12 },
       { header: "الجوال", key: "phone", width: 14 },
       { header: "جوال آخر", key: "otherPhone", width: 14 },
@@ -669,7 +807,9 @@ const exportBeneficiariesReport = async (req, res, next) => {
         nationalId: b.nationalId,
         gender: enumLabel("gender", b.gender),
         dateOfBirth: b.dateOfBirth || "",
+        age: calculateAge(b.dateOfBirth) ?? "",
         maritalStatus: enumLabel("maritalStatus", b.maritalStatus),
+        status: { draft: "مسودة", pending_review: "بانتظار المراجعة", returned: "مُعاد", approved: "مُعتمد" }[b.status] || b.status || "",
         category: b.category?.name || "",
         phone: b.phone || "",
         otherPhone: b.otherPhone || "",
@@ -744,6 +884,7 @@ const exportBeneficiariesReport = async (req, res, next) => {
       { header: "رقم هوية التابع", key: "nationalId", width: 14 },
       { header: "النوع", key: "gender", width: 10 },
       { header: "تاريخ الميلاد", key: "dateOfBirth", width: 14 },
+      { header: "العمر", key: "age", width: 8 },
       { header: "صلة القرابة", key: "relationship", width: 14 },
       { header: "الحالة الاجتماعية", key: "maritalStatus", width: 14 },
       { header: "اسم المدرسة", key: "schoolName", width: 20 },
@@ -753,6 +894,9 @@ const exportBeneficiariesReport = async (req, res, next) => {
       { header: "مواد الضعف", key: "weaknessSubjects", width: 18 },
       { header: "الحالة التعليمية", key: "educationStatus", width: 14 },
       { header: "الحالة الصحية", key: "healthStatus", width: 20 },
+      { header: "حج التابع", key: "depHajj", width: 10 },
+      { header: "عمرة التابع", key: "depUmrah", width: 10 },
+      { header: "المسجد النبوي", key: "depMosque", width: 12 },
       { header: "ملاحظات", key: "notes", width: 22 },
     ];
 
@@ -763,6 +907,7 @@ const exportBeneficiariesReport = async (req, res, next) => {
     const depRows = [];
     for (const b of beneficiaries) {
       for (const d of b.dependents || []) {
+        const rel = d.religious || {};
         depRows.push({
           beneficiaryNumber: b.beneficiaryNumber,
           beneficiaryName: b.name || "",
@@ -770,6 +915,7 @@ const exportBeneficiariesReport = async (req, res, next) => {
           nationalId: d.nationalId || "",
           gender: enumLabel("gender", d.gender),
           dateOfBirth: d.dateOfBirth || "",
+          age: calculateAge(d.dateOfBirth) ?? "",
           relationship: RELATIONSHIP_LABELS[d.relationship] || d.relationshipOther || d.relationship || "",
           maritalStatus: d.dependentMaritalStatus || "",
           schoolName: d.schoolName || "",
@@ -779,6 +925,9 @@ const exportBeneficiariesReport = async (req, res, next) => {
           weaknessSubjects: d.weaknessSubjects || "",
           educationStatus: EDU_STATUS_LABELS[d.educationStatus] || d.educationStatus || "",
           healthStatus: d.healthStatus || "",
+          depHajj: rel.hajj?.done ? "نعم" : "لا",
+          depUmrah: rel.umrah?.done ? "نعم" : "لا",
+          depMosque: rel.prophetMosque?.done ? "نعم" : "لا",
           notes: d.notes || "",
         });
       }

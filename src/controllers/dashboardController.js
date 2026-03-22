@@ -3,7 +3,6 @@ const {
   Beneficiary,
   User,
   Category,
-  AuditLog,
   Disbursement,
   Program,
   sequelize,
@@ -79,32 +78,6 @@ const getDashboardStats = async (req, res, next) => {
   }
 };
 
-const getRecentActivity = async (req, res, next) => {
-  try {
-    const logs = await AuditLog.findAll({
-      where: {
-        action: { [Op.in]: ["CREATE", "UPDATE", "DELETE"] },
-        entityType: { [Op.in]: ["PROFILE", "DEPENDENT", "DISBURSEMENT"] },
-      },
-      order: [["createdAt", "DESC"]],
-      limit: 10,
-    });
-
-    const activities = logs.map((log) => ({
-      id: log.id,
-      user: log.userEmail || "النظام",
-      action: log.action,
-      entityType: log.entityType,
-      entityId: log.entityId,
-      time: log.createdAt,
-    }));
-
-    res.json({ success: true, activities });
-  } catch (error) {
-    next(error);
-  }
-};
-
 const getRecentProfiles = async (req, res, next) => {
   try {
     const profiles = await Beneficiary.findAll({
@@ -131,6 +104,13 @@ const getDailyStats = async (req, res, next) => {
     const since = new Date();
     since.setDate(since.getDate() - days);
     since.setHours(0, 0, 0, 0);
+
+    const ARABIC_MONTHS = [
+      "يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو",
+      "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر",
+    ];
+    const toArabicDigits = (str) =>
+      String(str).replace(/\d/g, (d) => "٠١٢٣٤٥٦٧٨٩"[d]);
 
     const [beneficiaryRows, disbursementRows] = await Promise.all([
       Beneficiary.findAll({
@@ -166,18 +146,21 @@ const getDailyStats = async (req, res, next) => {
     today.setHours(23, 59, 59, 999);
     while (cursor <= today) {
       const dateStr = cursor.toISOString().slice(0, 10);
+      const day = cursor.getDate();
+      const month = ARABIC_MONTHS[cursor.getMonth()];
       data.push({
         date: dateStr,
+        dateAr: `${toArabicDigits(day)} ${month}`,
         beneficiaries: benMap.get(dateStr) || 0,
         disbursements: disMap.get(dateStr) || 0,
       });
       cursor.setDate(cursor.getDate() + 1);
     }
 
-    res.json({ success: true, data });
+    res.json({ success: true, defaultChart: "disbursements", data });
   } catch (error) {
     next(error);
   }
 };
 
-module.exports = { getDashboardStats, getRecentActivity, getRecentProfiles, getDailyStats };
+module.exports = { getDashboardStats, getRecentProfiles, getDailyStats };

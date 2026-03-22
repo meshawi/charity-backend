@@ -38,10 +38,10 @@ const User = sequelize.define('User', {
     type: DataTypes.BOOLEAN,
     defaultValue: true,
   },
-  avatar: {
-    type: DataTypes.STRING,
-    allowNull: true,
-    comment: 'Avatar URL or identifier',
+  isSuperAdmin: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false,
+    comment: 'Only one user can be super admin at a time',
   },
 }, {
   timestamps: true,

@@ -205,9 +205,34 @@ const Beneficiary = sequelize.define(
       type: DataTypes.INTEGER,
       allowNull: false,
     },
+    status: {
+      type: DataTypes.ENUM("draft", "pending_review", "returned", "approved"),
+      allowNull: false,
+      defaultValue: "draft",
+      comment: "حالة الملف: مسودة / بانتظار المراجعة / مُعاد / مُعتمد",
+    },
+    returnNote: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+      comment: "ملاحظة الإرجاع من لجنة المراجعة",
+    },
   },
   {
     timestamps: true,
+    hooks: {
+      beforeValidate: (instance) => {
+        // Convert empty strings to null for ENUM fields to prevent "Data truncated" errors
+        const enumFields = [
+          "gender", "maritalStatus", "residenceArea", "buildingOwnership",
+          "buildingType", "buildingCondition", "buildingCapacity", "status",
+        ];
+        for (const field of enumFields) {
+          if (instance[field] === "") {
+            instance[field] = null;
+          }
+        }
+      },
+    },
   }
 );
 

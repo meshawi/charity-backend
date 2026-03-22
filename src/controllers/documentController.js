@@ -3,8 +3,25 @@ const fs = require("fs");
 const multer = require("multer");
 const { Document, Beneficiary, User } = require("../models");
 const { NotFoundError, ValidationError } = require("../utils/errors");
-const auditService = require("../services/auditService");
 const { DOCUMENTS_PATH, ensureDirectories } = require("../config/storage");
+
+// Fixed document types
+const DOCUMENT_TYPES = [
+  { key: "association_research", label: "بحث الجمعيات" },
+  { key: "national_id", label: "الهوية الوطنية" },
+  { key: "family_card", label: "كرت العائلة" },
+  { key: "residence_proof", label: "إثبات سكن" },
+  { key: "absher_data", label: "بيانات أبشر" },
+  { key: "support_deed", label: "صك إعالة" },
+  { key: "social_security_statement", label: "مشهد من الضمان (موضح فيه التابعين مبلغ الدعم)" },
+  { key: "citizen_account_page", label: "صفحة حساب المواطن (موضح مبلغ الدعم)" },
+  { key: "alimony_deed", label: "صك نفقة" },
+  { key: "divorce_deed", label: "صك طلاق" },
+  { key: "rehabilitation_statement", label: "مشهد من التأهيل الشامل" },
+  { key: "monthly_income_cert", label: "تعريف بالدخل الشهري (التأمينات)" },
+];
+
+const VALID_DOC_TYPES = new Set(DOCUMENT_TYPES.map((d) => d.key));
 
 // Multer config for document uploads
 const storage = multer.diskStorage({
@@ -31,13 +48,11 @@ const upload = multer({
       "image/png",
       "image/webp",
       "application/pdf",
-      "application/msword",
-      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     ];
     if (allowed.includes(file.mimetype)) {
       cb(null, true);
     } else {
-      cb(new ValidationError("نوع الملف غير مدعوم"));
+      cb(new ValidationError("نوع الملف غير مدعوم — يسمح فقط بصور و PDF"));
     }
   },
 });
@@ -51,6 +66,7 @@ const uploadDocument = async (req, res, next) => {
     const { type } = req.body;
 
     if (!type) throw new ValidationError("نوع المستند مطلوب");
+    if (!VALID_DOC_TYPES.has(type)) throw new ValidationError("نوع المستند غير صالح");
     if (!req.file) throw new ValidationError("الملف مطلوب");
 
     const beneficiary = await Beneficiary.findByPk(beneficiaryId);
@@ -76,12 +92,6 @@ const uploadDocument = async (req, res, next) => {
         uploadedById: req.user.id,
       });
 
-      await auditService.logUpdate(req, "DOCUMENT", existing.id, { type }, {
-        type,
-        filename: req.file.filename,
-        replaced: true,
-      });
-
       return res.json({ success: true, document: existing, replaced: true });
     }
 
@@ -96,40 +106,14 @@ const uploadDocument = async (req, res, next) => {
       uploadedById: req.user.id,
     });
 
-    await auditService.logCreate(req, "DOCUMENT", document.id, {
-      beneficiaryId,
-      type,
-      filename: req.file.filename,
-    });
-
     res.status(201).json({ success: true, document });
   } catch (error) {
     next(error);
   }
 };
 
-// Get documents for a beneficiary
-const getDocuments = async (req, res, next) => {
-  try {
-    const { beneficiaryId } = req.params;
-
-    const beneficiary = await Beneficiary.findByPk(beneficiaryId);
-    if (!beneficiary) throw new NotFoundError("المستفيد غير موجود");
-
-    const documents = await Document.findAll({
-      where: { beneficiaryId },
-      include: [{ model: User, as: "uploadedBy", attributes: ["id", "name"] }],
-      order: [["updatedAt", "DESC"]],
-    });
-
-    res.json({ success: true, documents });
-  } catch (error) {
-    next(error);
-  }
-};
-
-// Download a document
-const downloadDocument = async (req, res, next) => {
+// View/preview a document inline (images & PDFs)
+const viewDocument = async (req, res, next) => {
   try {
     const document = await Document.findByPk(req.params.id);
     if (!document) throw new NotFoundError("المستند غير موجود");
@@ -139,7 +123,10 @@ const downloadDocument = async (req, res, next) => {
       throw new NotFoundError("الملف غير موجود على الخادم");
     }
 
-    res.download(filePath, document.originalName);
+    const mimeType = document.mimeType || "application/octet-stream";
+    res.set("Content-Type", mimeType);
+    res.set("Content-Disposition", `inline; filename="${encodeURIComponent(document.originalName)}"`);
+    res.sendFile(path.resolve(filePath));
   } catch (error) {
     next(error);
   }
@@ -157,10 +144,7 @@ const deleteDocument = async (req, res, next) => {
       fs.unlinkSync(filePath);
     }
 
-    const oldValues = document.toJSON();
     await document.destroy();
-
-    await auditService.logDelete(req, "DOCUMENT", document.id, oldValues);
 
     res.json({ success: true, message: "تم حذف المستند" });
   } catch (error) {
@@ -168,10 +152,15 @@ const deleteDocument = async (req, res, next) => {
   }
 };
 
+// Get fixed document types
+const getDocumentTypes = (req, res) => {
+  res.json({ success: true, types: DOCUMENT_TYPES });
+};
+
 module.exports = {
   uploadMiddleware,
   uploadDocument,
-  getDocuments,
-  downloadDocument,
+  viewDocument,
   deleteDocument,
+  getDocumentTypes,
 };

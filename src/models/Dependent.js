@@ -89,6 +89,11 @@ const Dependent = sequelize.define(
       allowNull: true,
       comment: "الحالة الصحية",
     },
+    religious: {
+      type: DataTypes.JSON,
+      allowNull: true,
+      comment: "الزيارات الدينية — التابع: {hajj,umrah,prophetMosque}",
+    },
     notes: {
       type: DataTypes.TEXT,
       allowNull: true,
@@ -97,6 +102,16 @@ const Dependent = sequelize.define(
   },
   {
     timestamps: true,
+    hooks: {
+      beforeValidate: (instance) => {
+        const enumFields = ["gender", "relationship", "schoolType", "educationStatus"];
+        for (const field of enumFields) {
+          if (instance[field] === "") {
+            instance[field] = null;
+          }
+        }
+      },
+    },
   }
 );
 

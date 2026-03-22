@@ -1,8 +1,7 @@
-const { Category, Program } = require("../models");
+const { Category, Program, Beneficiary, ProgramCategory } = require("../models");
 const { Op } = require("sequelize");
 
 const { NotFoundError, ValidationError } = require("../utils/errors");
-const auditService = require("../services/auditService");
 
 const getCategories = async (req, res, next) => {
   try {
@@ -33,22 +32,6 @@ const getCategories = async (req, res, next) => {
   }
 };
 
-const getCategoryById = async (req, res, next) => {
-  try {
-    const category = await Category.findByPk(req.params.id, {
-      include: [{ model: Program, as: "programs" }],
-    });
-
-    if (!category) {
-      throw new NotFoundError("الفئة غير موجودة");
-    }
-
-    res.json({ success: true, category });
-  } catch (error) {
-    next(error);
-  }
-};
-
 const createCategory = async (req, res, next) => {
   try {
     const data = req.body;
@@ -59,10 +42,6 @@ const createCategory = async (req, res, next) => {
     }
 
     const category = await Category.create(data);
-
-    await auditService.logCreate(req, "CATEGORY", category.id, {
-      name: category.name,
-    });
 
     res
       .status(201)
@@ -80,19 +59,13 @@ const updateCategory = async (req, res, next) => {
       throw new NotFoundError("الفئة غير موجودة");
     }
 
-    // Category name is fixed — only description and color can be edited
-    const { name, ...allowedFields } = req.body;
+    // Check name uniqueness if changing
+    if (req.body.name && req.body.name !== category.name) {
+      const existing = await Category.findOne({ where: { name: req.body.name } });
+      if (existing) throw new ValidationError("اسم الفئة موجود بالفعل");
+    }
 
-    const oldValues = category.toJSON();
-    await category.update(allowedFields);
-
-    await auditService.logUpdate(
-      req,
-      "CATEGORY",
-      category.id,
-      oldValues,
-      category.toJSON()
-    );
+    await category.update(req.body);
 
     res.json({ success: true, message: "تم تحديث الفئة", category });
   } catch (error) {
@@ -102,24 +75,22 @@ const updateCategory = async (req, res, next) => {
 
 const deleteCategory = async (req, res, next) => {
   try {
-    const category = await Category.findByPk(req.params.id, {
-      include: [{ model: Program, as: "programs" }],
-    });
+    const category = await Category.findByPk(req.params.id);
 
     if (!category) {
       throw new NotFoundError("الفئة غير موجودة");
     }
 
-    if (category.programs && category.programs.length > 0) {
-      throw new ValidationError(
-        "لا يمكن حذف فئة مرتبطة ببرامج"
-      );
-    }
+    // Unlink beneficiaries (set categoryId to null)
+    await Beneficiary.update(
+      { categoryId: null },
+      { where: { categoryId: category.id } }
+    );
 
-    const oldValues = category.toJSON();
+    // Unlink programs (remove join table rows)
+    await ProgramCategory.destroy({ where: { categoryId: category.id } });
+
     await category.destroy();
-
-    await auditService.logDelete(req, "CATEGORY", category.id, oldValues);
 
     res.json({ success: true, message: "تم حذف الفئة" });
   } catch (error) {
@@ -129,7 +100,6 @@ const deleteCategory = async (req, res, next) => {
 
 module.exports = {
   getCategories,
-  getCategoryById,
   createCategory,
   updateCategory,
   deleteCategory,

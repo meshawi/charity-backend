@@ -12,7 +12,22 @@ const {
   sequelize,
 } = require("../models");
 const { NotFoundError, ValidationError } = require("../utils/errors");
-const auditService = require("../services/auditService");
+const { calculateAge } = require("../utils/ageHelper");
+const { buildPagination } = require("../utils/pagination");
+
+// Helper: add age to beneficiary JSON
+const addAge = (beneficiary) => {
+  const json = beneficiary.toJSON ? beneficiary.toJSON() : { ...beneficiary };
+  json.age = calculateAge(json.dateOfBirth);
+  if (json.dependents) {
+    json.dependents = json.dependents.map((d) => {
+      const dep = d.toJSON ? d.toJSON() : { ...d };
+      dep.age = calculateAge(dep.dateOfBirth);
+      return dep;
+    });
+  }
+  return json;
+};
 
 // Generate beneficiary number: YYYY_XXXXXX (underscore for easy copy)
 const generateBeneficiaryNumber = async () => {
@@ -34,7 +49,7 @@ const generateBeneficiaryNumber = async () => {
 
 const getBeneficiaries = async (req, res, next) => {
   try {
-    const { search, page = 1, limit = 20, categoryId } = req.query;
+    const { search, page = 1, limit = 20, categoryId, disbursementStatus } = req.query;
     const offset = (page - 1) * limit;
     const where = {};
 
@@ -47,6 +62,21 @@ const getBeneficiaries = async (req, res, next) => {
         { name: { [Op.like]: `%${search}%` } },
         { phone: { [Op.like]: `%${search}%` } },
       ];
+    }
+
+    // Filter by disbursement status: "received" or "not_received"
+    if (disbursementStatus === "received") {
+      where.id = {
+        [Op.in]: sequelize.literal(
+          "(SELECT DISTINCT `beneficiaryId` FROM `Disbursements`)"
+        ),
+      };
+    } else if (disbursementStatus === "not_received") {
+      where.id = {
+        [Op.notIn]: sequelize.literal(
+          "(SELECT DISTINCT `beneficiaryId` FROM `Disbursements`)"
+        ),
+      };
     }
 
     const { count, rows: beneficiaries } = await Beneficiary.findAndCountAll({
@@ -62,13 +92,8 @@ const getBeneficiaries = async (req, res, next) => {
 
     res.json({
       success: true,
-      beneficiaries,
-      pagination: {
-        total: count,
-        page: parseInt(page),
-        limit: parseInt(limit),
-        totalPages: Math.ceil(count / limit),
-      },
+      beneficiaries: beneficiaries.map((b) => addAge(b)),
+      pagination: buildPagination(count, page, limit),
     });
   } catch (error) {
     next(error);
@@ -101,7 +126,7 @@ const getBeneficiaryById = async (req, res, next) => {
 
     if (!beneficiary) throw new NotFoundError("المستفيد غير موجود");
 
-    res.json({ success: true, beneficiary });
+    res.json({ success: true, beneficiary: addAge(beneficiary) });
   } catch (error) {
     next(error);
   }
@@ -142,11 +167,6 @@ const createBeneficiary = async (req, res, next) => {
       createdById: req.user.id,
     });
 
-    await auditService.logCreate(req, "BENEFICIARY", beneficiary.id, {
-      beneficiaryNumber: beneficiary.beneficiaryNumber,
-      nationalId: beneficiary.nationalId,
-    });
-
     res.status(201).json({ success: true, beneficiary });
   } catch (error) {
     next(error);
@@ -178,25 +198,11 @@ const updateBeneficiary = async (req, res, next) => {
       }
     }
 
-    // Validate required fields based on FieldConfig
-    const requiredFields = await FieldConfig.findAll({
-      where: { fieldGroup: "beneficiary", isRequired: true },
-    });
-
-    for (const fc of requiredFields) {
-      const val = req.body[fc.fieldName];
-      if (val === null || val === undefined || val === "") {
-        throw new ValidationError(`الحقل "${fc.fieldLabel}" مطلوب`);
-      }
-    }
-
     // Category cannot be changed through update — use assign-category endpoint
-    const { categoryId, ...safeBody } = req.body;
+    // Status cannot be changed through update — use submit/review endpoints
+    const { categoryId, status, returnNote, ...safeBody } = req.body;
 
-    const oldValues = beneficiary.toJSON();
     await beneficiary.update(safeBody);
-
-    await auditService.logUpdate(req, "BENEFICIARY", beneficiary.id, oldValues, beneficiary.toJSON());
 
     res.json({ success: true, beneficiary });
   } catch (error) {
@@ -231,17 +237,8 @@ const assignCategory = async (req, res, next) => {
       note: note.trim(),
     });
 
-    // Update the beneficiary
-    await beneficiary.update({ categoryId });
-
-    await auditService.log({
-      action: "CATEGORY_ASSIGNMENT",
-      entityType: "BENEFICIARY",
-      entityId: beneficiary.id,
-      oldValues: { categoryId: previousCategoryId },
-      newValues: { categoryId, note: note.trim() },
-      ...auditService.getRequestInfo(req),
-    });
+    // Update the beneficiary — also set status to approved
+    await beneficiary.update({ categoryId, status: "approved", returnNote: null });
 
     res.json({
       success: true,
@@ -285,12 +282,173 @@ const deleteBeneficiary = async (req, res, next) => {
     const beneficiary = await Beneficiary.findByPk(req.params.id);
     if (!beneficiary) throw new NotFoundError("المستفيد غير موجود");
 
-    const oldValues = beneficiary.toJSON();
     await beneficiary.destroy();
 
-    await auditService.logDelete(req, "BENEFICIARY", beneficiary.id, oldValues);
-
     res.json({ success: true, message: "تم حذف المستفيد" });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Submit beneficiary for review (validates all mandatory fields)
+const submitForReview = async (req, res, next) => {
+  try {
+    const beneficiary = await Beneficiary.findByPk(req.params.id, {
+      include: [{ model: Dependent, as: "dependents" }],
+    });
+    if (!beneficiary) throw new NotFoundError("المستفيد غير موجود");
+
+    if (beneficiary.status !== "draft" && beneficiary.status !== "returned") {
+      throw new ValidationError("لا يمكن تقديم الملف للمراجعة في الحالة الحالية");
+    }
+
+    // Validate all mandatory beneficiary fields
+    const requiredBenFields = await FieldConfig.findAll({
+      where: { fieldGroup: "beneficiary", isRequired: true },
+    });
+
+    const missingFields = [];
+    for (const fc of requiredBenFields) {
+      const val = beneficiary[fc.fieldName];
+      if (val === null || val === undefined || val === "") {
+        missingFields.push({ fieldName: fc.fieldName, fieldLabel: fc.fieldLabel });
+      }
+    }
+
+    // Validate all mandatory dependent fields
+    const requiredDepFields = await FieldConfig.findAll({
+      where: { fieldGroup: "dependent", isRequired: true },
+    });
+
+    const dependentMissing = [];
+    if (requiredDepFields.length > 0 && beneficiary.dependents) {
+      for (const dep of beneficiary.dependents) {
+        for (const fc of requiredDepFields) {
+          const val = dep[fc.fieldName];
+          if (val === null || val === undefined || val === "") {
+            dependentMissing.push({
+              dependentId: dep.id,
+              dependentName: dep.name || "بدون اسم",
+              fieldName: fc.fieldName,
+              fieldLabel: fc.fieldLabel,
+            });
+          }
+        }
+      }
+    }
+
+    if (missingFields.length > 0 || dependentMissing.length > 0) {
+      throw new ValidationError("الحقول المطلوبة غير مكتملة", {
+        beneficiaryMissing: missingFields,
+        dependentMissing,
+      });
+    }
+
+    await beneficiary.update({ status: "pending_review", returnNote: null });
+
+    res.json({ success: true, message: "تم تقديم الملف للمراجعة", beneficiary: addAge(beneficiary) });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Get beneficiaries pending review (for review committee)
+const getReviewQueue = async (req, res, next) => {
+  try {
+    const { page = 1, limit = 20, search } = req.query;
+    const offset = (page - 1) * limit;
+    const where = { status: "pending_review" };
+
+    if (search) {
+      where[Op.or] = [
+        { beneficiaryNumber: { [Op.like]: `%${search}%` } },
+        { nationalId: { [Op.like]: `%${search}%` } },
+        { name: { [Op.like]: `%${search}%` } },
+      ];
+    }
+
+    const { count, rows } = await Beneficiary.findAndCountAll({
+      where,
+      include: [
+        { model: User, as: "createdBy", attributes: ["id", "name"] },
+        { model: Category, as: "category", attributes: ["id", "name", "color"] },
+        { model: Dependent, as: "dependents" },
+        {
+          model: Document,
+          as: "documents",
+          include: [{ model: User, as: "uploadedBy", attributes: ["id", "name"] }],
+        },
+      ],
+      order: [["updatedAt", "ASC"]],
+      limit: parseInt(limit),
+      offset: parseInt(offset),
+    });
+
+    res.json({
+      success: true,
+      beneficiaries: rows.map((b) => addAge(b)),
+      pagination: buildPagination(count, page, limit),
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Return beneficiary to researcher with note
+const returnBeneficiary = async (req, res, next) => {
+  try {
+    const { note } = req.body;
+    if (!note || !note.trim()) throw new ValidationError("ملاحظة الإرجاع مطلوبة");
+
+    const beneficiary = await Beneficiary.findByPk(req.params.id);
+    if (!beneficiary) throw new NotFoundError("المستفيد غير موجود");
+
+    if (beneficiary.status !== "pending_review") {
+      throw new ValidationError("لا يمكن إرجاع ملف ليس بانتظار المراجعة");
+    }
+
+    await beneficiary.update({ status: "returned", returnNote: note.trim() });
+
+    res.json({ success: true, message: "تم إرجاع الملف للباحث", beneficiary: addAge(beneficiary) });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Get beneficiary data completeness progress
+const getBeneficiaryProgress = async (req, res, next) => {
+  try {
+    const beneficiary = await Beneficiary.findByPk(req.params.id, {
+      include: [{ model: Dependent, as: "dependents" }],
+    });
+    if (!beneficiary) throw new NotFoundError("المستفيد غير موجود");
+
+    const requiredBenFields = await FieldConfig.findAll({
+      where: { fieldGroup: "beneficiary", isRequired: true },
+    });
+
+    const totalRequired = requiredBenFields.length;
+    let filledCount = 0;
+    const pendingFields = [];
+
+    for (const fc of requiredBenFields) {
+      const val = beneficiary[fc.fieldName];
+      if (val !== null && val !== undefined && val !== "") {
+        filledCount++;
+      } else {
+        pendingFields.push({ fieldName: fc.fieldName, fieldLabel: fc.fieldLabel });
+      }
+    }
+
+    const progress = totalRequired > 0 ? Math.round((filledCount / totalRequired) * 100) : 100;
+
+    res.json({
+      success: true,
+      progress,
+      totalRequired,
+      filledCount,
+      pendingFields,
+    });
   } catch (error) {
     next(error);
   }
@@ -304,4 +462,8 @@ module.exports = {
   deleteBeneficiary,
   assignCategory,
   getCategoryHistory,
+  submitForReview,
+  getReviewQueue,
+  returnBeneficiary,
+  getBeneficiaryProgress,
 };

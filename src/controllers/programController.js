@@ -1,12 +1,18 @@
-const { Program, Category } = require("../models");
+const { Op } = require("sequelize");
+const { Program, Category, Beneficiary, Disbursement, User } = require("../models");
 const { NotFoundError, ValidationError } = require("../utils/errors");
-const auditService = require("../services/auditService");
-const { deactivateExpiredPrograms } = require("../utils/programUtils");
+const { buildPagination } = require("../utils/pagination");
+
+// Validate that startDate is before endDate when both are provided
+const validateDates = (startDate, endDate) => {
+  if (startDate && endDate && startDate >= endDate) {
+    throw new ValidationError("تاريخ البداية يجب أن يكون قبل تاريخ النهاية");
+  }
+};
 
 const getPrograms = async (req, res, next) => {
   try {
-    // Auto-deactivate expired programs first
-    await deactivateExpiredPrograms(Program);
+
 
     const { categoryId } = req.query;
 
@@ -41,29 +47,6 @@ const getPrograms = async (req, res, next) => {
   }
 };
 
-const getProgramById = async (req, res, next) => {
-  try {
-    const program = await Program.findByPk(req.params.id, {
-      include: [
-        {
-          model: Category,
-          as: "categories",
-          attributes: ["id", "name", "color"],
-          through: { attributes: [] },
-        },
-      ],
-    });
-
-    if (!program) {
-      throw new NotFoundError("البرنامج غير موجود");
-    }
-
-    res.json({ success: true, program });
-  } catch (error) {
-    next(error);
-  }
-};
-
 const createProgram = async (req, res, next) => {
   try {
     const { name, description, categoryIds, startDate, endDate } =
@@ -72,6 +55,8 @@ const createProgram = async (req, res, next) => {
     if (!categoryIds || categoryIds.length === 0) {
       throw new ValidationError("يجب اختيار فئة واحدة على الأقل");
     }
+
+    validateDates(startDate, endDate);
 
     const categories = await Category.findAll({ where: { id: categoryIds } });
     if (categories.length !== categoryIds.length) {
@@ -90,11 +75,6 @@ const createProgram = async (req, res, next) => {
       include: [
         { model: Category, as: "categories", through: { attributes: [] } },
       ],
-    });
-
-    await auditService.logCreate(req, "PROGRAM", program.id, {
-      name: program.name,
-      categoryIds,
     });
 
     res
@@ -120,10 +100,10 @@ const updateProgram = async (req, res, next) => {
     const { name, description, categoryIds, startDate, endDate, isActive } =
       req.body;
 
-    const oldValues = {
-      ...program.toJSON(),
-      categoryIds: program.categories.map((c) => c.id),
-    };
+    // Resolve effective dates: use provided value, or fall back to existing
+    const effectiveStart = startDate !== undefined ? startDate : program.startDate;
+    const effectiveEnd = endDate !== undefined ? endDate : program.endDate;
+    validateDates(effectiveStart, effectiveEnd);
 
     await program.update({
       ...(name && { name }),
@@ -151,11 +131,6 @@ const updateProgram = async (req, res, next) => {
       ],
     });
 
-    await auditService.logUpdate(req, "PROGRAM", program.id, oldValues, {
-      ...program.toJSON(),
-      categoryIds: program.categories.map((c) => c.id),
-    });
-
     res.json({ success: true, message: "تم تحديث البرنامج", program });
   } catch (error) {
     next(error);
@@ -170,10 +145,7 @@ const deleteProgram = async (req, res, next) => {
       throw new NotFoundError("البرنامج غير موجود");
     }
 
-    const oldValues = program.toJSON();
     await program.destroy();
-
-    await auditService.logDelete(req, "PROGRAM", program.id, oldValues);
 
     res.json({ success: true, message: "تم حذف البرنامج" });
   } catch (error) {
@@ -181,10 +153,200 @@ const deleteProgram = async (req, res, next) => {
   }
 };
 
+// Get program beneficiaries: received, eligible (not received), or all
+const getProgramBeneficiaries = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { page = 1, limit = 20, search, status } = req.query;
+    const offset = (page - 1) * limit;
+
+    const program = await Program.findByPk(id, {
+      include: [{
+        model: Category,
+        as: "categories",
+        attributes: ["id"],
+        through: { attributes: [] },
+      }],
+    });
+    if (!program) throw new NotFoundError("البرنامج غير موجود");
+
+    const programCategoryIds = program.categories.map((c) => c.id);
+
+    const searchWhere = search
+      ? {
+          [Op.or]: [
+            { beneficiaryNumber: { [Op.like]: `%${search}%` } },
+            { nationalId: { [Op.like]: `%${search}%` } },
+            { name: { [Op.like]: `%${search}%` } },
+          ],
+        }
+      : {};
+
+    const beneficiaryAttrs = ["id", "beneficiaryNumber", "name", "nationalId", "phone"];
+    const categoryInclude = { model: Category, as: "category", attributes: ["id", "name", "color"] };
+
+    // Unique beneficiary IDs who received from this program
+    const receivedBeneficiaryIds = new Set(
+      (await Disbursement.findAll({
+        where: { programId: id },
+        attributes: ["beneficiaryId"],
+        group: ["beneficiaryId"],
+        raw: true,
+      })).map((d) => d.beneficiaryId)
+    );
+
+    // Summary stats: count qualified, then intersect with received
+    const qualifiedCount = await Beneficiary.count({
+      where: { categoryId: { [Op.in]: programCategoryIds } },
+    });
+    const receivedQualifiedCount = receivedBeneficiaryIds.size > 0
+      ? await Beneficiary.count({
+          where: {
+            categoryId: { [Op.in]: programCategoryIds },
+            id: { [Op.in]: [...receivedBeneficiaryIds] },
+          },
+        })
+      : 0;
+    const summary = {
+      totalQualified: qualifiedCount,
+      totalReceived: receivedQualifiedCount,
+      totalEligible: qualifiedCount - receivedQualifiedCount,
+    };
+
+    if (status === "received") {
+      // Beneficiaries who received from this program
+      const disbursementSearch = search
+        ? {
+            where: {
+              [Op.or]: [
+                { beneficiaryNumber: { [Op.like]: `%${search}%` } },
+                { nationalId: { [Op.like]: `%${search}%` } },
+                { name: { [Op.like]: `%${search}%` } },
+              ],
+            },
+          }
+        : {};
+
+      const { count, rows } = await Disbursement.findAndCountAll({
+        where: { programId: id },
+        include: [
+          {
+            model: Beneficiary,
+            as: "beneficiary",
+            attributes: beneficiaryAttrs,
+            include: [categoryInclude],
+            ...disbursementSearch,
+          },
+          { model: User, as: "disbursedBy", attributes: ["id", "name"] },
+        ],
+        order: [["disbursedAt", "DESC"]],
+        limit: parseInt(limit),
+        offset,
+      });
+
+      return res.json({
+        success: true,
+        programName: program.name,
+        status: "received",
+        beneficiaries: rows.map((d) => ({
+          ...d.beneficiary.toJSON(),
+          disbursement: {
+            id: d.id,
+            disbursedAt: d.disbursedAt,
+            receiverName: d.receiverName,
+            disbursedBy: d.disbursedBy,
+          },
+        })),
+        summary,
+        pagination: buildPagination(count, page, limit),
+      });
+    }
+
+    if (status === "eligible") {
+      // Qualified by category but have NOT received
+      const where = {
+        categoryId: { [Op.in]: programCategoryIds },
+        ...(receivedBeneficiaryIds.size > 0 && { id: { [Op.notIn]: [...receivedBeneficiaryIds] } }),
+        ...searchWhere,
+      };
+
+      const { count, rows } = await Beneficiary.findAndCountAll({
+        where,
+        attributes: beneficiaryAttrs,
+        include: [categoryInclude],
+        order: [["name", "ASC"]],
+        limit: parseInt(limit),
+        offset,
+      });
+
+      return res.json({
+        success: true,
+        programName: program.name,
+        status: "eligible",
+        beneficiaries: rows,
+        summary,
+        pagination: buildPagination(count, page, limit),
+      });
+    }
+
+    // Default: all qualified beneficiaries with received/eligible flag
+    const [disbursements, qualifiedBeneficiaries] = await Promise.all([
+      Disbursement.findAll({
+        where: { programId: id },
+        include: [
+          { model: Beneficiary, as: "beneficiary", attributes: beneficiaryAttrs, include: [categoryInclude] },
+          { model: User, as: "disbursedBy", attributes: ["id", "name"] },
+        ],
+      }),
+      Beneficiary.findAll({
+        where: { categoryId: { [Op.in]: programCategoryIds } },
+        attributes: beneficiaryAttrs,
+        include: [categoryInclude],
+      }),
+    ]);
+
+    const disbursementMap = new Map(disbursements.map((d) => [d.beneficiaryId, d]));
+
+    let combined = qualifiedBeneficiaries.map((b) => {
+      const d = disbursementMap.get(b.id);
+      return {
+        ...b.toJSON(),
+        status: d ? "received" : "eligible",
+        disbursement: d
+          ? { id: d.id, disbursedAt: d.disbursedAt, receiverName: d.receiverName, disbursedBy: d.disbursedBy }
+          : null,
+      };
+    });
+
+    if (search) {
+      const s = search.toLowerCase();
+      combined = combined.filter((b) =>
+        b.beneficiaryNumber?.toLowerCase().includes(s) ||
+        b.nationalId?.toLowerCase().includes(s) ||
+        b.name?.toLowerCase().includes(s)
+      );
+    }
+
+    const total = combined.length;
+    const paged = combined.slice(offset, offset + parseInt(limit));
+
+    res.json({
+      success: true,
+      programName: program.name,
+      status: "all",
+      beneficiaries: paged,
+      summary,
+      pagination: buildPagination(total, page, limit),
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   getPrograms,
-  getProgramById,
   createProgram,
   updateProgram,
   deleteProgram,
+  getProgramBeneficiaries,
 };

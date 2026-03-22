@@ -138,6 +138,7 @@ const dependentFields = [
   { fieldName: "weaknessSubjects", fieldLabel: "مواد الضعف" },
   { fieldName: "educationStatus", fieldLabel: "الحالة التعليمية" },
   { fieldName: "healthStatus", fieldLabel: "الحالة الصحية" },
+  { fieldName: "religious", fieldLabel: "الزيارات الدينية (التابع)" },
   { fieldName: "notes", fieldLabel: "ملاحظات" },
 ];
 
@@ -182,6 +183,7 @@ const seed = async () => {
       name: "مدير النظام",
       nationalId: "1234567890",
       isActive: true,
+      isSuperAdmin: true,
     });
     await adminUser.addRole(adminRole);
     console.log("Created admin user");
@@ -392,6 +394,7 @@ const seed = async () => {
         healthStatus: "بصحة جيدة",
         familySkillsTalents: "الأب يعمل في الصيانة العامة",
         categoryId: createdCategories[0].id,
+        status: "approved",
         createdById: adminUser.id,
       },
       {
@@ -432,6 +435,7 @@ const seed = async () => {
           other: { monthly: 0, yearly: 0, notes: "" },
         },
         categoryId: createdCategories[1].id,
+        status: "approved",
         createdById: adminUser.id,
       },
       {
@@ -472,6 +476,7 @@ const seed = async () => {
           other: { monthly: 0, yearly: 0, notes: "" },
         },
         categoryId: createdCategories[0].id,
+        status: "approved",
         createdById: user3.id,
       },
       {
@@ -511,6 +516,7 @@ const seed = async () => {
           other: { monthly: 0, yearly: 0, notes: "" },
         },
         categoryId: createdCategories[2].id,
+        status: "approved",
         createdById: user3.id,
       },
       {
@@ -555,6 +561,7 @@ const seed = async () => {
           other: { monthly: 0, yearly: 0, notes: "" },
         },
         categoryId: createdCategories[3].id,
+        status: "approved",
         createdById: adminUser.id,
       },
       {
@@ -594,6 +601,7 @@ const seed = async () => {
           other: { monthly: 0, yearly: 0, notes: "" },
         },
         categoryId: createdCategories[4].id,
+        status: "approved",
         createdById: user2.id,
       },
       {
@@ -616,6 +624,7 @@ const seed = async () => {
         buildingCapacity: "small",
         notes: "يتيم - بحاجة لدعم عاجل",
         categoryId: createdCategories[5].id,
+        status: "approved",
         createdById: user2.id,
       },
       {
@@ -655,6 +664,7 @@ const seed = async () => {
           other: { monthly: 0, yearly: 0, notes: "" },
         },
         categoryId: createdCategories[1].id,
+        status: "approved",
         createdById: adminUser.id,
       },
       // Beneficiary #9: TEST CASE — covers all 4 disbursement scenarios
@@ -729,6 +739,7 @@ const seed = async () => {
         },
         researcherNotes: "مستفيد اختباري — يغطي جميع حالات الصرف الأربع",
         categoryId: createdCategories[0].id,
+        status: "approved",
         createdById: adminUser.id,
       },
     ];
@@ -784,23 +795,53 @@ const seed = async () => {
       const dt = new Date(genStart + genStep * i);
       const yr = dt.getFullYear();
       yearCounters[yr] = (yearCounters[yr] || 0) + 1;
+
+      // Make some beneficiaries draft (incomplete) or pending_review
+      let status = "approved";
+      let categoryId = createdCategories[i % createdCategories.length].id;
+      let phone = `050${String(1000001 + i)}`;
+      let iban = undefined;
+      let bank = i % 2 === 0 ? "الراجحي" : "الأهلي";
+
+      // Indices 30-33: people who didn't fill their name (only nationalId)
+      let name = `${firstNames[i % firstNames.length]} ${lastNames[i % lastNames.length]}`;
+      if (i >= 30 && i <= 33) {
+        name = null;
+      }
+
+      // Indices 34-35: approved but never received any disbursement
+      // (no special field changes — they just won't get disbursements below)
+
+      if (i >= 36 && i <= 37) {
+        // Draft — incomplete, no category, missing some fields
+        status = "draft";
+        categoryId = null;
+        phone = null;
+        bank = null;
+        name = null; // drafts also have no name
+      } else if (i >= 38 && i <= 39) {
+        // Pending review — has category, complete data
+        status = "pending_review";
+      }
+
       extraBeneficiaries.push({
         beneficiaryNumber: `${yr}_${String(yearCounters[yr]).padStart(6, "0")}`,
-        name: `${firstNames[i % firstNames.length]} ${lastNames[i % lastNames.length]}`,
+        name,
         nationalId: `109890${String(i + 1).padStart(4, "0")}`,
         gender: genders[i % 2],
         dateOfBirth: `${1970 + (i % 30)}-${String((i % 12) + 1).padStart(2, "0")}-15`,
         maritalStatus: maritalStatuses[i % maritalStatuses.length],
-        phone: `050${String(1000001 + i)}`,
+        phone,
         familyCount: 2 + (i % 5),
         dependentsCount: 1 + (i % 4),
-        bank: i % 2 === 0 ? "الراجحي" : "الأهلي",
+        bank,
         residenceArea: areas[i % areas.length],
         buildingOwnership: ownerships[i % ownerships.length],
         buildingType: buildTypes[i % buildTypes.length],
         buildingCondition: buildConditions[i % buildConditions.length],
         buildingCapacity: buildCapacities[i % buildCapacities.length],
-        categoryId: createdCategories[i % createdCategories.length].id,
+        categoryId,
+        status,
         createdById: creators[i % creators.length].id,
         createdAt: dt,
         updatedAt: dt,
@@ -810,29 +851,34 @@ const seed = async () => {
     const extraCreated = await Beneficiary.bulkCreate(extraBeneficiaries);
     console.log(`Created ${extraCreated.length} additional historical beneficiaries`);
 
-    const extraAssignments = extraCreated.map((b, i) => ({
-      beneficiaryId: b.id,
-      categoryId: extraBeneficiaries[i].categoryId,
-      previousCategoryId: null,
-      assignedById: extraBeneficiaries[i].createdById,
-      note: "تعيين أولي عند إنشاء الملف",
-      createdAt: extraBeneficiaries[i].createdAt,
-      updatedAt: extraBeneficiaries[i].createdAt,
-    }));
+    const extraAssignments = extraCreated
+      .map((b, i) => {
+        if (!extraBeneficiaries[i].categoryId) return null; // skip draft (no category)
+        return {
+          beneficiaryId: b.id,
+          categoryId: extraBeneficiaries[i].categoryId,
+          previousCategoryId: null,
+          assignedById: extraBeneficiaries[i].createdById,
+          note: "تعيين أولي عند إنشاء الملف",
+          createdAt: extraBeneficiaries[i].createdAt,
+          updatedAt: extraBeneficiaries[i].createdAt,
+        };
+      })
+      .filter(Boolean);
     await CategoryAssignment.bulkCreate(extraAssignments);
     console.log(`Created ${extraAssignments.length} additional category assignments`);
 
     // 9. Create dependents
     const dependentsData = [
       // Beneficiary 1 dependents
-      { beneficiaryId: createdBeneficiaries[0].id, name: "سعد عبدالله الغامدي", nationalId: "1198765001", gender: "male", dateOfBirth: "2007-05-12", relationship: "son", educationStatus: "enrolled", schoolName: "ثانوية الملك فهد", schoolGrade: "ثالث ثانوي", schoolType: "public", academicGrade: "جيد جداً" },
+      { beneficiaryId: createdBeneficiaries[0].id, name: "سعد عبدالله الغامدي", nationalId: "1198765001", gender: "male", dateOfBirth: "2007-05-12", relationship: "son", educationStatus: "enrolled", schoolName: "ثانوية الملك فهد", schoolGrade: "ثالث ثانوي", schoolType: "public", academicGrade: "جيد جداً", religious: { hajj: { done: false, lastYear: "" }, umrah: { done: true, lastYear: "1445" }, prophetMosque: { done: true, lastYear: "1445" } } },
       { beneficiaryId: createdBeneficiaries[0].id, name: "ريم عبدالله الغامدي", nationalId: "1198765002", gender: "female", dateOfBirth: "2011-08-03", relationship: "daughter", educationStatus: "enrolled", schoolName: "متوسطة النور", schoolGrade: "ثاني متوسط", schoolType: "public", academicGrade: "ممتاز", weaknessSubjects: "الرياضيات" },
       { beneficiaryId: createdBeneficiaries[0].id, name: "خالد عبدالله الغامدي", nationalId: "1198765003", gender: "male", dateOfBirth: "2015-01-20", relationship: "son", educationStatus: "enrolled", schoolName: "ابتدائية الأمل", schoolGrade: "رابع ابتدائي", schoolType: "public", academicGrade: "جيد" },
       // Beneficiary 2 dependents
       { beneficiaryId: createdBeneficiaries[1].id, name: "أحمد فاطمة العتيبي", nationalId: "1198765004", gender: "male", dateOfBirth: "2009-03-10", relationship: "son", educationStatus: "enrolled" },
       { beneficiaryId: createdBeneficiaries[1].id, name: "سارة فاطمة العتيبي", nationalId: "1198765005", gender: "female", dateOfBirth: "2013-06-15", relationship: "daughter", educationStatus: "enrolled", dependentMaritalStatus: "عزباء" },
       // Beneficiary 3 dependents
-      { beneficiaryId: createdBeneficiaries[2].id, name: "عمر صالح الدوسري", nationalId: "1198765006", gender: "male", dateOfBirth: "2003-10-08", relationship: "son", educationStatus: "graduated", dependentMaritalStatus: "أعزب" },
+      { beneficiaryId: createdBeneficiaries[2].id, name: "عمر صالح الدوسري", nationalId: "1198765006", gender: "male", dateOfBirth: "2003-10-08", relationship: "son", educationStatus: "graduated", dependentMaritalStatus: "أعزب", religious: { hajj: { done: true, lastYear: "1444" }, umrah: { done: true, lastYear: "1445" }, prophetMosque: { done: false, lastYear: "" } } },
       { beneficiaryId: createdBeneficiaries[2].id, name: "هند صالح الدوسري", nationalId: "1198765007", gender: "female", dateOfBirth: "2005-04-22", relationship: "daughter", educationStatus: "enrolled", healthStatus: "حالة مستقرة" },
       { beneficiaryId: createdBeneficiaries[2].id, name: "ماجد صالح الدوسري", nationalId: "1198765008", gender: "male", dateOfBirth: "2010-12-01", relationship: "son", educationStatus: "enrolled", weaknessSubjects: "اللغة الإنجليزية" },
       // Beneficiary 4 dependents
@@ -844,7 +890,7 @@ const seed = async () => {
       { beneficiaryId: createdBeneficiaries[5].id, name: "فيصل مريم الزهراني", nationalId: "1198765013", gender: "male", dateOfBirth: "2014-05-07", relationship: "son", educationStatus: "enrolled" },
       // Beneficiary 9 dependents (test beneficiary)
       // Dependent with nationalId matching beneficiary 3 (صالح) → triggers family dedup for program 2
-      { beneficiaryId: createdBeneficiaries[8].id, name: "صالح عمر الدوسري", nationalId: "1098765434", gender: "male", dateOfBirth: "1970-11-05", relationship: "other", relationshipOther: "قريب", dependentMaritalStatus: "متزوج" },
+      { beneficiaryId: createdBeneficiaries[8].id, name: "صالح عمر الدوسري", nationalId: "1098765434", gender: "male", dateOfBirth: "1970-11-05", relationship: "other", relationshipOther: "قريب", dependentMaritalStatus: "متزوج", religious: { hajj: { done: true, lastYear: "1443" }, umrah: { done: true, lastYear: "1445" }, prophetMosque: { done: true, lastYear: "1444" } } },
       { beneficiaryId: createdBeneficiaries[8].id, name: "نوف محمد الحربي", nationalId: "1198765014", gender: "female", dateOfBirth: "2012-08-18", relationship: "daughter", educationStatus: "enrolled", schoolType: "public", schoolName: "ابتدائية الأندلس", schoolGrade: "سادس ابتدائي" },
     ];
 
@@ -878,8 +924,15 @@ const seed = async () => {
     const cutoff = new Date("2026-03-21");
     const recentStart = new Date("2026-01-20"); // last ~60 days
 
+    // Indices 34-35 should never receive disbursements
+    const noDisbursementIndices = new Set([34, 35]);
+    const noDisbursementIds = new Set(
+      [...noDisbursementIndices].map((idx) => extraCreated[idx].id)
+    );
+
     // Phase 1: normal disbursements spread across the full range
     for (let i = 0; i < extraCreated.length; i++) {
+      if (noDisbursementIndices.has(i)) continue; // skip no-disbursement beneficiaries
       const bDate = extraBeneficiaries[i].createdAt;
       const count = 1 + (i % 3); // 1-3 disbursements per beneficiary
       for (let j = 0; j < count; j++) {
@@ -911,6 +964,7 @@ const seed = async () => {
       const dayCount = (d * 7 + 3) % 6; // cycles: 3,4,5,0,1,2,3,4,5,...
       for (let k = 0; k < dayCount; k++) {
         const bIdx = (d * 3 + k) % allBeneficiaries.length;
+        if (noDisbursementIds.has(allBeneficiaries[bIdx].id)) continue; // skip
         const pIdx = (d + k) % allPrograms.length;
         extraDisbursements.push({
           beneficiaryId: allBeneficiaries[bIdx].id,
@@ -943,6 +997,11 @@ const seed = async () => {
     console.log("  P2 (كسوة الشتاء) → family dedup (dependent = beneficiary 3 who received)");
     console.log("  P3 (سلة غذائية)  → not qualified (cat أ not in [ب,د])");
     console.log("  P4 (إعانة إيجار) → VALID, can receive");
+    console.log("\nSpecial historical beneficiaries (extra indices):");
+    console.log("  30-33: No name (didn't fill their name)");
+    console.log("  34-35: Never received disbursement");
+    console.log("  36-37: Draft status (incomplete)");
+    console.log("  38-39: Pending review");
     console.log("\n");
 
     process.exit(0);
