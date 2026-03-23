@@ -461,6 +461,10 @@ const buildWhereClause = (filters) => {
           dependentWhere.dateOfBirth = { ...dependentWhere.dateOfBirth, [Op.lte]: new Date(today.getFullYear() - ageVal, today.getMonth(), today.getDate()).toISOString().split("T")[0] };
         } else if (op === "lte") {
           dependentWhere.dateOfBirth = { ...dependentWhere.dateOfBirth, [Op.gte]: new Date(today.getFullYear() - ageVal - 1, today.getMonth(), today.getDate() + 1).toISOString().split("T")[0] };
+        } else if (op === "gt") {
+          dependentWhere.dateOfBirth = { ...dependentWhere.dateOfBirth, [Op.lt]: new Date(today.getFullYear() - ageVal - 1, today.getMonth(), today.getDate()).toISOString().split("T")[0] };
+        } else if (op === "lt") {
+          dependentWhere.dateOfBirth = { ...dependentWhere.dateOfBirth, [Op.gt]: new Date(today.getFullYear() - ageVal, today.getMonth(), today.getDate() + 1).toISOString().split("T")[0] };
         }
       }
     } else if (f.field.startsWith("dependent.religious.")) {
