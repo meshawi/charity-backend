@@ -92,7 +92,7 @@ const Beneficiary = sequelize.define(
     },
     // --- الحالة السكنية ---
     buildingOwnership: {
-      type: DataTypes.ENUM("private", "shared", "rented"),
+      type: DataTypes.ENUM("private", "shared", "rented", "charity_house", "developmental_housing"),
       allowNull: true,
       comment: "ملكية البناء",
     },
@@ -137,13 +137,13 @@ const Beneficiary = sequelize.define(
     incomeSources: {
       type: DataTypes.JSON,
       allowNull: true,
-      comment: "مصادر الدخل — كل مصدر: {monthly,yearly,notes}",
+      comment: "مصادر الدخل — كل مصدر: {monthly,notes}",
     },
     // --- الالتزامات المالية (JSON) ---
     financialObligations: {
       type: DataTypes.JSON,
       allowNull: true,
-      comment: "الالتزامات المالية — كل بند: {monthly,yearly,notes}",
+      comment: "الالتزامات المالية — كل بند: {monthly,notes}",
     },
     // --- حقول عامة ---
     healthStatus: {

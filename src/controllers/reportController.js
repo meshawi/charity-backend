@@ -86,7 +86,7 @@ const ENUM_LABELS = {
     aldana: "الدانة",
     other: "أخرى",
   },
-  buildingOwnership: { private: "ملك خاص", shared: "مشترك", rented: "مستأجر" },
+  buildingOwnership: { private: "ملك خاص", shared: "مشترك", rented: "مستأجر", charity_house: "منزل خيري", developmental_housing: "اسكان تنموي" },
   buildingType: { arabic: "عربي", concrete: "مسلح", other: "أخرى" },
   buildingCondition: {
     good: "جيدة",
@@ -181,6 +181,8 @@ const FILTER_FIELDS = [
       { value: "private", label: "ملك خاص" },
       { value: "shared", label: "مشترك" },
       { value: "rented", label: "مستأجر" },
+      { value: "charity_house", label: "منزل خيري" },
+      { value: "developmental_housing", label: "اسكان تنموي" },
     ],
   },
   {
@@ -539,7 +541,7 @@ const getFilterFields = async (req, res, next) => {
 
 const filterBeneficiaries = async (req, res, next) => {
   try {
-    const { filters = [], search, page = 1, limit = 20, disbursementStatus } = req.body;
+    const { filters = [], search, page = 1, limit = 20, disbursementStatus, needUpdate } = req.body;
     const offset = (page - 1) * limit;
 
     const { beneficiaryWhere, dependentWhere, hasDependentFilter, programFilter } =
@@ -568,6 +570,21 @@ const filterBeneficiaries = async (req, res, next) => {
       if (!beneficiaryWhere[Op.and]) beneficiaryWhere[Op.and] = [];
       beneficiaryWhere[Op.and].push({
         id: { [Op.notIn]: sequelize.literal("(SELECT DISTINCT `beneficiaryId` FROM `Disbursements`)") },
+      });
+    }
+
+    // Filter: need update — nextUpdate is within 30 days or already passed
+    if (needUpdate === true || needUpdate === "true") {
+      const thirtyDaysFromNow = new Date();
+      thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
+      if (!beneficiaryWhere[Op.and]) beneficiaryWhere[Op.and] = [];
+      beneficiaryWhere[Op.and].push({
+        nextUpdate: {
+          [Op.and]: [
+            { [Op.ne]: null },
+            { [Op.lte]: thirtyDaysFromNow.toISOString().split("T")[0] },
+          ],
+        },
       });
     }
 

@@ -29,27 +29,19 @@ const addAge = (beneficiary) => {
   return json;
 };
 
-// Generate beneficiary number: YYYY_XXXXXX (underscore for easy copy)
+// Generate beneficiary number: BNIF-XXXXXX (zero-padded auto-increment)
 const generateBeneficiaryNumber = async () => {
-  const year = new Date().getFullYear();
   const last = await Beneficiary.findOne({
-    where: sequelize.where(
-      sequelize.fn("LEFT", sequelize.col("beneficiaryNumber"), 5),
-      `${year}_`
-    ),
     order: [["id", "DESC"]],
+    attributes: ["id"],
   });
-
-  let seq = 1;
-  if (last) {
-    seq = parseInt(last.beneficiaryNumber.split("_")[1]) + 1;
-  }
-  return `${year}_${String(seq).padStart(6, "0")}`;
+  const nextId = (last?.id || 0) + 1;
+  return `BNIF-${String(nextId).padStart(6, "0")}`;
 };
 
 const getBeneficiaries = async (req, res, next) => {
   try {
-    const { search, page = 1, limit = 20, categoryId, disbursementStatus } = req.query;
+    const { search, page = 1, limit = 20, categoryId, disbursementStatus, needUpdate } = req.query;
     const offset = (page - 1) * limit;
     const where = {};
 
@@ -76,6 +68,18 @@ const getBeneficiaries = async (req, res, next) => {
         [Op.notIn]: sequelize.literal(
           "(SELECT DISTINCT `beneficiaryId` FROM `Disbursements`)"
         ),
+      };
+    }
+
+    // Filter: need update — nextUpdate is within 30 days or already passed
+    if (needUpdate === "true") {
+      const thirtyDaysFromNow = new Date();
+      thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
+      where.nextUpdate = {
+        [Op.and]: [
+          { [Op.ne]: null },
+          { [Op.lte]: thirtyDaysFromNow.toISOString().split("T")[0] },
+        ],
       };
     }
 
