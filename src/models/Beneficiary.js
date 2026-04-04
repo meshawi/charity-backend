@@ -140,6 +140,13 @@ const Beneficiary = sequelize.define(
       allowNull: true,
       comment: "مصادر الدخل — كل مصدر: {monthly,notes}",
     },
+    // --- خصم الإيجار ---
+    rentDeduction: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      defaultValue: 0,
+      comment: "خصم الإيجار — يُخصم من مجموع الدخل",
+    },
     // --- الالتزامات المالية (JSON) ---
     financialObligations: {
       type: DataTypes.JSON,
@@ -147,10 +154,15 @@ const Beneficiary = sequelize.define(
       comment: "الالتزامات المالية — كل بند: {monthly,notes}",
     },
     // --- حقول عامة ---
+    healthCondition: {
+      type: DataTypes.ENUM("healthy", "unhealthy"),
+      allowNull: true,
+      comment: "الحالة الصحية — سليم / غير سليم",
+    },
     healthStatus: {
       type: DataTypes.TEXT,
       allowNull: true,
-      comment: "الحالة الصحية",
+      comment: "الحالة الصحية (نصاً) — يظهر فقط عند اختيار غير سليم",
     },
     origin: {
       type: DataTypes.STRING,
@@ -211,6 +223,7 @@ const Beneficiary = sequelize.define(
         const enumFields = [
           "gender", "maritalStatus", "residenceArea", "buildingOwnership",
           "buildingType", "buildingCondition", "buildingCapacity", "status",
+          "healthCondition",
         ];
         for (const field of enumFields) {
           if (instance[field] === "") {

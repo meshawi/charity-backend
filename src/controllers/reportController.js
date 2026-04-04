@@ -219,7 +219,17 @@ const FILTER_FIELDS = [
     ],
   },
   // Health
-  { key: "healthStatus", label: "الحالة الصحية", type: "text", group: "صحي" },
+  {
+    key: "healthCondition",
+    label: "الحالة الصحية",
+    type: "enum",
+    group: "صحي",
+    options: [
+      { value: "healthy", label: "سليم" },
+      { value: "unhealthy", label: "غير سليم" },
+    ],
+  },
+  { key: "healthStatus", label: "الحالة الصحية (نصاً)", type: "text", group: "صحي" },
   // Religious (JSON)
   {
     key: "husbandReligious.hajj.done",
@@ -290,7 +300,17 @@ const FILTER_FIELDS = [
   { key: "dependent.nationalId", label: "هوية التابع", type: "text", group: "التابعين" },
   { key: "dependent.dateOfBirth", label: "تاريخ ميلاد التابع", type: "date", group: "التابعين" },
   { key: "dependent.age", label: "عمر التابع", type: "number", group: "التابعين" },
-  { key: "dependent.healthStatus", label: "الحالة الصحية للتابع", type: "text", group: "التابعين" },
+  {
+    key: "dependent.healthCondition",
+    label: "الحالة الصحية للتابع",
+    type: "enum",
+    group: "التابعين",
+    options: [
+      { value: "healthy", label: "سليم" },
+      { value: "unhealthy", label: "غير سليم" },
+    ],
+  },
+  { key: "dependent.healthStatus", label: "الحالة الصحية للتابع (نصاً)", type: "text", group: "التابعين" },
   { key: "dependent.dependentMaritalStatus", label: "الحالة الاجتماعية للتابع", type: "text", group: "التابعين" },
   {
     key: "dependent.religious.hajj.done",
@@ -353,6 +373,7 @@ const DIRECT_COLUMNS = new Set([
   "buildingType",
   "buildingCondition",
   "buildingCapacity",
+  "healthCondition",
   "healthStatus",
   "status",
   "iban",
@@ -368,6 +389,7 @@ const DEPENDENT_COLUMNS = new Set([
   "name",
   "nationalId",
   "dateOfBirth",
+  "healthCondition",
   "healthStatus",
   "dependentMaritalStatus",
 ]);
@@ -769,6 +791,8 @@ const exportBeneficiariesReport = async (req, res, next) => {
       benColumns.push({ header: `${iLabel} — ملاحظات`, key: `i_${iKey}_notes`, width: 14 });
     }
     benColumns.push({ header: "مجموع الدخل الشهري", key: "totalIncome", width: 16 });
+    benColumns.push({ header: "خصم الإيجار", key: "rentDeduction", width: 12 });
+    benColumns.push({ header: "صافي الدخل", key: "netIncome", width: 14 });
 
     // Obligation columns (monthly + notes)
     for (const [oKey, oLabel] of Object.entries(OBLIGATION_KEYS)) {
@@ -780,7 +804,8 @@ const exportBeneficiariesReport = async (req, res, next) => {
 
     // General fields
     benColumns.push(
-      { header: "الحالة الصحية", key: "healthStatus", width: 20 },
+      { header: "الحالة الصحية", key: "healthCondition", width: 12 },
+      { header: "الحالة الصحية (نصاً)", key: "healthStatus", width: 20 },
       { header: "الأصل", key: "origin", width: 14 },
       { header: "اسم الباحث", key: "researcherName", width: 14 },
       { header: "تاريخ الزيارة الأولى", key: "firstVisitDate", width: 14 },
@@ -801,6 +826,8 @@ const exportBeneficiariesReport = async (req, res, next) => {
       const obl = b.financialObligations || {};
 
       const totalIncome = Object.values(inc).reduce((s, v) => s + (v?.monthly || 0), 0);
+      const rentDed = b.rentDeduction || 0;
+      const netIncome = totalIncome - rentDed;
       const totalObl = Object.values(obl).reduce((s, v) => s + (v?.monthly || 0), 0);
 
       const row = {
@@ -850,6 +877,8 @@ const exportBeneficiariesReport = async (req, res, next) => {
         row[`i_${iKey}_notes`] = item.notes || "";
       }
       row.totalIncome = totalIncome || "";
+      row.rentDeduction = rentDed || "";
+      row.netIncome = netIncome || "";
 
       // Obligations
       for (const oKey of Object.keys(OBLIGATION_KEYS)) {
@@ -858,8 +887,9 @@ const exportBeneficiariesReport = async (req, res, next) => {
         row[`o_${oKey}_notes`] = item.notes || "";
       }
       row.totalObligations = totalObl || "";
-      row.perCapita = b.familyCount ? Math.round(totalIncome / b.familyCount) : "";
+      row.perCapita = b.familyCount ? Math.round(netIncome / b.familyCount) : "";
 
+      row.healthCondition = { healthy: "سليم", unhealthy: "غير سليم" }[b.healthCondition] || "";
       row.healthStatus = b.healthStatus || "";
       row.origin = b.origin || "";
       row.researcherName = b.researcherName || "";
@@ -893,7 +923,8 @@ const exportBeneficiariesReport = async (req, res, next) => {
       { header: "التقدير الدراسي", key: "academicGrade", width: 12 },
       { header: "مواد الضعف", key: "weaknessSubjects", width: 18 },
       { header: "الحالة التعليمية", key: "educationStatus", width: 14 },
-      { header: "الحالة الصحية", key: "healthStatus", width: 20 },
+      { header: "الحالة الصحية", key: "healthCondition", width: 12 },
+      { header: "الحالة الصحية (نصاً)", key: "healthStatus", width: 20 },
       { header: "حج التابع", key: "depHajj", width: 10 },
       { header: "تاريخ زيارة الحج", key: "depHajjDate", width: 14 },
       { header: "عمرة التابع", key: "depUmrah", width: 10 },
@@ -927,6 +958,7 @@ const exportBeneficiariesReport = async (req, res, next) => {
           academicGrade: d.academicGrade || "",
           weaknessSubjects: d.weaknessSubjects || "",
           educationStatus: EDU_STATUS_LABELS[d.educationStatus] || d.educationStatus || "",
+          healthCondition: { healthy: "سليم", unhealthy: "غير سليم" }[d.healthCondition] || "",
           healthStatus: d.healthStatus || "",
           depHajj: rel.hajj?.done ? "نعم" : "لا",
           depHajjDate: rel.hajj?.visitDate || "",

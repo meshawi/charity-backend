@@ -118,7 +118,9 @@ const buildCoreBeneficiaries = (catIds, userIds) => {
         freelance: { monthly: 1100, notes: "أعمال صيانة" },
       }),
       financialObligations: buildObligations({ rent: { monthly: 2000 } }),
-      healthStatus: "بصحة جيدة",
+      rentDeduction: 200,
+      healthCondition: "healthy",
+      healthStatus: null,
       familySkillsTalents: "الأب يعمل في الصيانة العامة",
       // updateDate already passed, nextUpdate overdue
       updateDate: "2025-01-10",
@@ -172,6 +174,7 @@ const buildCoreBeneficiaries = (catIds, userIds) => {
       buildingType: "arabic",
       buildingCondition: "needs_repair",
       buildingCapacity: "small",
+      healthCondition: "unhealthy",
       healthStatus: "يعاني من السكري",
       incomeSources: buildIncome({
         modernSocialSecurity: { monthly: 2500 },
@@ -402,7 +405,7 @@ const buildCoreDependents = (benIds) => [
   { beneficiaryId: benIds[1], name: "سارة فاطمة العتيبي", nationalId: "1198765005", gender: "female", dateOfBirth: "2013-06-15", relationship: "daughter", educationStatus: "enrolled", dependentMaritalStatus: "عزباء" },
   // Beneficiary 3
   { beneficiaryId: benIds[2], name: "عمر صالح الدوسري", nationalId: "1198765006", gender: "male", dateOfBirth: "2003-10-08", relationship: "son", educationStatus: "graduated", dependentMaritalStatus: "أعزب", religious: { hajj: { done: true, visitDate: "2018-08-20" }, umrah: { done: true, visitDate: "2023-11-05" }, prophetMosque: { done: false } } },
-  { beneficiaryId: benIds[2], name: "هند صالح الدوسري", nationalId: "1198765007", gender: "female", dateOfBirth: "2005-04-22", relationship: "daughter", educationStatus: "enrolled", healthStatus: "حالة مستقرة" },
+  { beneficiaryId: benIds[2], name: "هند صالح الدوسري", nationalId: "1198765007", gender: "female", dateOfBirth: "2005-04-22", relationship: "daughter", educationStatus: "enrolled", healthCondition: "unhealthy", healthStatus: "حالة مستقرة" },
   { beneficiaryId: benIds[2], name: "ماجد صالح الدوسري", nationalId: "1198765008", gender: "male", dateOfBirth: "2010-12-01", relationship: "son", educationStatus: "enrolled", weaknessSubjects: "اللغة الإنجليزية" },
   // Beneficiary 4
   { beneficiaryId: benIds[3], name: "لمى نورة القحطاني", nationalId: "1198765009", gender: "female", dateOfBirth: "2017-07-30", relationship: "daughter", educationStatus: "enrolled", schoolType: "public" },
