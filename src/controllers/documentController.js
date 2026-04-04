@@ -19,6 +19,7 @@ const DOCUMENT_TYPES = [
   { key: "divorce_deed", label: "صك طلاق" },
   { key: "rehabilitation_statement", label: "مشهد من التأهيل الشامل" },
   { key: "monthly_income_cert", label: "تعريف بالدخل الشهري (التأمينات)" },
+  { key: "medical_report", label: "تقرير طبي" },
 ];
 
 const VALID_DOC_TYPES = new Set(DOCUMENT_TYPES.map((d) => d.key));

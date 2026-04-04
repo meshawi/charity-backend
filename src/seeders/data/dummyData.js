@@ -95,11 +95,6 @@ const buildCoreBeneficiaries = (catIds, userIds) => {
         umrah: { done: true, visitDate: "2023-03-20" },
         prophetMosque: { done: true, visitDate: "2023-03-22" },
       },
-      wifeReligious: {
-        hajj: { done: false },
-        umrah: { done: true, visitDate: "2023-03-20" },
-        prophetMosque: { done: true, visitDate: "2023-03-22" },
-      },
       furnitureAppliances: buildFurniture({
         windowAC: { good: 2, needsRepair: 1 },
         splitAC: { good: 1 },
@@ -125,8 +120,8 @@ const buildCoreBeneficiaries = (catIds, userIds) => {
       financialObligations: buildObligations({ rent: { monthly: 2000 } }),
       healthStatus: "بصحة جيدة",
       familySkillsTalents: "الأب يعمل في الصيانة العامة",
-      // nextUpdate already passed → shows in "need update" filter
-      updateDone: "2025-01-10",
+      // updateDate already passed, nextUpdate overdue
+      updateDate: "2025-01-10",
       nextUpdate: daysFromNow(-60),
       categoryId: catIds[0],
       status: "approved",
@@ -153,8 +148,7 @@ const buildCoreBeneficiaries = (catIds, userIds) => {
       buildingCapacity: "medium",
       incomeSources: buildIncome({ modernSocialSecurity: { monthly: 2000 } }),
       financialObligations: buildObligations({ rent: { monthly: 1500 } }),
-      // nextUpdate in 10 days → shows in "need update" filter
-      updateDone: "2025-09-01",
+      updateDate: "2025-09-01",
       nextUpdate: daysFromNow(10),
       categoryId: catIds[1],
       status: "approved",
@@ -185,8 +179,7 @@ const buildCoreBeneficiaries = (catIds, userIds) => {
         disabilityAid: { monthly: 500 },
       }),
       financialObligations: buildObligations({ rent: { monthly: 2500 } }),
-      // nextUpdate 25 days away → shows in "need update" filter
-      updateDone: "2025-10-01",
+      updateDate: "2025-10-01",
       nextUpdate: daysFromNow(25),
       categoryId: catIds[0],
       status: "approved",
@@ -215,8 +208,7 @@ const buildCoreBeneficiaries = (catIds, userIds) => {
         citizenAccount: { monthly: 900 },
       }),
       financialObligations: buildObligations({ rent: { monthly: 1800 } }),
-      // nextUpdate far away → does NOT show in "need update" filter
-      updateDone: "2026-01-15",
+      updateDate: "2026-01-15",
       nextUpdate: daysFromNow(120),
       categoryId: catIds[2],
       status: "approved",
@@ -241,8 +233,8 @@ const buildCoreBeneficiaries = (catIds, userIds) => {
       buildingCondition: "average",
       buildingCapacity: "medium",
       husbandReligious: {
-        hajj: { done: true, visitDate: "2015-09-20" },
-        umrah: { done: true, visitDate: "2022-04-10" },
+        hajj: { done: true, visitDate: "2020-07-15" },
+        umrah: { done: true, visitDate: "2024-01-10" },
         prophetMosque: { done: false },
       },
       incomeSources: buildIncome({
@@ -251,8 +243,7 @@ const buildCoreBeneficiaries = (catIds, userIds) => {
         pension: { monthly: 500 },
       }),
       financialObligations: buildObligations({ rent: { monthly: 1200 } }),
-      // nextUpdate passed 15 days ago → shows in "need update" filter
-      updateDone: "2025-06-01",
+      updateDate: "2025-06-01",
       nextUpdate: daysFromNow(-15),
       categoryId: catIds[3],
       status: "approved",
@@ -278,8 +269,7 @@ const buildCoreBeneficiaries = (catIds, userIds) => {
       buildingCapacity: "sufficient",
       incomeSources: buildIncome({ salary: { monthly: 3000 } }),
       financialObligations: buildObligations({ rent: { monthly: 2200 } }),
-      // nextUpdate exactly today → shows in "need update" filter
-      updateDone: "2025-11-01",
+      updateDate: "2025-11-01",
       nextUpdate: daysFromNow(0),
       categoryId: catIds[4],
       status: "approved",
@@ -303,8 +293,7 @@ const buildCoreBeneficiaries = (catIds, userIds) => {
       buildingType: "concrete",
       buildingCondition: "average",
       buildingCapacity: "small",
-      notes: "يتيم - بحاجة لدعم عاجل",
-      // no nextUpdate → does NOT show in filter
+      // no updateDate
       categoryId: catIds[5],
       status: "approved",
       createdById: usersMgr,
@@ -329,8 +318,7 @@ const buildCoreBeneficiaries = (catIds, userIds) => {
       buildingCapacity: "small",
       incomeSources: buildIncome({ modernSocialSecurity: { monthly: 2200 } }),
       financialObligations: buildObligations({ rent: { monthly: 1600 } }),
-      // nextUpdate 29 days from now → shows in "need update" filter
-      updateDone: "2025-12-01",
+      updateDate: "2025-12-01",
       nextUpdate: daysFromNow(29),
       categoryId: catIds[1],
       status: "approved",
@@ -362,12 +350,7 @@ const buildCoreBeneficiaries = (catIds, userIds) => {
       buildingCapacity: "medium",
       husbandReligious: {
         hajj: { done: false },
-        umrah: { done: true, visitDate: "2024-01-10" },
-        prophetMosque: { done: false },
-      },
-      wifeReligious: {
-        hajj: { done: false },
-        umrah: { done: false },
+        umrah: { done: true, visitDate: "2022-05-18" },
         prophetMosque: { done: false },
       },
       furnitureAppliances: buildFurniture({
@@ -398,8 +381,7 @@ const buildCoreBeneficiaries = (catIds, userIds) => {
         loanPayment: { monthly: 500, notes: "قرض شخصي" },
       }),
       researcherNotes: "مستفيد اختباري — يغطي جميع حالات الصرف الأربع",
-      // nextUpdate 5 days from now → shows in "need update" filter
-      updateDone: "2026-01-15",
+      updateDate: "2026-01-15",
       nextUpdate: daysFromNow(5),
       categoryId: catIds[0],
       status: "approved",
@@ -412,14 +394,14 @@ const buildCoreBeneficiaries = (catIds, userIds) => {
 
 const buildCoreDependents = (benIds) => [
   // Beneficiary 1
-  { beneficiaryId: benIds[0], name: "سعد عبدالله الغامدي", nationalId: "1198765001", gender: "male", dateOfBirth: "2007-05-12", relationship: "son", educationStatus: "enrolled", schoolName: "ثانوية الملك فهد", schoolGrade: "ثالث ثانوي", schoolType: "public", academicGrade: "جيد جداً", religious: { hajj: { done: false }, umrah: { done: true, lastYear: "1445" }, prophetMosque: { done: true, lastYear: "1445" } } },
+  { beneficiaryId: benIds[0], name: "سعد عبدالله الغامدي", nationalId: "1198765001", gender: "male", dateOfBirth: "2007-05-12", relationship: "son", educationStatus: "enrolled", schoolName: "ثانوية الملك فهد", schoolGrade: "ثالث ثانوي", schoolType: "public", academicGrade: "جيد جداً", religious: { hajj: { done: false }, umrah: { done: true, visitDate: "2024-02-15" }, prophetMosque: { done: true, visitDate: "2024-02-17" } } },
   { beneficiaryId: benIds[0], name: "ريم عبدالله الغامدي", nationalId: "1198765002", gender: "female", dateOfBirth: "2011-08-03", relationship: "daughter", educationStatus: "enrolled", schoolName: "متوسطة النور", schoolGrade: "ثاني متوسط", schoolType: "public", academicGrade: "ممتاز", weaknessSubjects: "الرياضيات" },
   { beneficiaryId: benIds[0], name: "خالد عبدالله الغامدي", nationalId: "1198765003", gender: "male", dateOfBirth: "2015-01-20", relationship: "son", educationStatus: "enrolled", schoolName: "ابتدائية الأمل", schoolGrade: "رابع ابتدائي", schoolType: "public", academicGrade: "جيد" },
   // Beneficiary 2
   { beneficiaryId: benIds[1], name: "أحمد فاطمة العتيبي", nationalId: "1198765004", gender: "male", dateOfBirth: "2009-03-10", relationship: "son", educationStatus: "enrolled" },
   { beneficiaryId: benIds[1], name: "سارة فاطمة العتيبي", nationalId: "1198765005", gender: "female", dateOfBirth: "2013-06-15", relationship: "daughter", educationStatus: "enrolled", dependentMaritalStatus: "عزباء" },
   // Beneficiary 3
-  { beneficiaryId: benIds[2], name: "عمر صالح الدوسري", nationalId: "1198765006", gender: "male", dateOfBirth: "2003-10-08", relationship: "son", educationStatus: "graduated", dependentMaritalStatus: "أعزب", religious: { hajj: { done: true, lastYear: "1444" }, umrah: { done: true, lastYear: "1445" }, prophetMosque: { done: false } } },
+  { beneficiaryId: benIds[2], name: "عمر صالح الدوسري", nationalId: "1198765006", gender: "male", dateOfBirth: "2003-10-08", relationship: "son", educationStatus: "graduated", dependentMaritalStatus: "أعزب", religious: { hajj: { done: true, visitDate: "2018-08-20" }, umrah: { done: true, visitDate: "2023-11-05" }, prophetMosque: { done: false } } },
   { beneficiaryId: benIds[2], name: "هند صالح الدوسري", nationalId: "1198765007", gender: "female", dateOfBirth: "2005-04-22", relationship: "daughter", educationStatus: "enrolled", healthStatus: "حالة مستقرة" },
   { beneficiaryId: benIds[2], name: "ماجد صالح الدوسري", nationalId: "1198765008", gender: "male", dateOfBirth: "2010-12-01", relationship: "son", educationStatus: "enrolled", weaknessSubjects: "اللغة الإنجليزية" },
   // Beneficiary 4
@@ -430,7 +412,7 @@ const buildCoreDependents = (benIds) => [
   { beneficiaryId: benIds[5], name: "أمل مريم الزهراني", nationalId: "1198765012", gender: "female", dateOfBirth: "2009-09-25", relationship: "daughter", educationStatus: "enrolled" },
   { beneficiaryId: benIds[5], name: "فيصل مريم الزهراني", nationalId: "1198765013", gender: "male", dateOfBirth: "2014-05-07", relationship: "son", educationStatus: "enrolled" },
   // Beneficiary 9 — dependent matching beneficiary 3 → triggers family dedup
-  { beneficiaryId: benIds[8], name: "صالح عمر الدوسري", nationalId: "1098765434", gender: "male", dateOfBirth: "1970-11-05", relationship: "other", relationshipOther: "قريب", dependentMaritalStatus: "متزوج", religious: { hajj: { done: true, lastYear: "1443" }, umrah: { done: true, lastYear: "1445" }, prophetMosque: { done: true, lastYear: "1444" } } },
+  { beneficiaryId: benIds[8], name: "صالح عمر الدوسري", nationalId: "1098765434", gender: "male", dateOfBirth: "1970-11-05", relationship: "other", relationshipOther: "قريب", dependentMaritalStatus: "متزوج", religious: { hajj: { done: true, visitDate: "2017-09-01" }, umrah: { done: true, visitDate: "2022-04-20" }, prophetMosque: { done: true, visitDate: "2022-04-22" } } },
   { beneficiaryId: benIds[8], name: "نوف محمد الحربي", nationalId: "1198765014", gender: "female", dateOfBirth: "2012-08-18", relationship: "daughter", educationStatus: "enrolled", schoolType: "public", schoolName: "ابتدائية الأندلس", schoolGrade: "سادس ابتدائي" },
 ];
 

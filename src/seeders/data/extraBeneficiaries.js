@@ -1,7 +1,7 @@
 /**
  * Generator for 40 additional historical beneficiaries (2025-2026).
  * Produces BNIF-XXXXXX numbered entries with the updated schema
- * (no yearly, expanded buildingOwnership, some with nextUpdate).
+ * (no yearly, expanded buildingOwnership, some with updateDate).
  */
 const { buildIncome, buildObligations } = require("./financialTemplates");
 const { daysFromNow } = require("./dummyData");
@@ -90,17 +90,15 @@ function buildExtraBeneficiaries(catIds, creatorIds, startSeq) {
     const oblKey = oblKeys[i % oblKeys.length];
     oblOver[oblKey] = { monthly: 500 + (i * 131) % 2500 };
 
-    // nextUpdate on ~10 beneficiaries (indices 0-4 past, 5-9 within 30 days)
+    // updateDate on ~10 beneficiaries, nextUpdate for need-update filter
+    let updateDate = undefined;
     let nextUpdate = undefined;
-    let updateDone = undefined;
     if (i < 5) {
-      // already passed → need update
+      updateDate = daysFromNow(-365);
       nextUpdate = daysFromNow(-90 + i * 10);
-      updateDone = daysFromNow(-365);
     } else if (i >= 5 && i < 10) {
-      // within 30 days → need update
+      updateDate = daysFromNow(-180);
       nextUpdate = daysFromNow(3 + i * 3);
-      updateDone = daysFromNow(-180);
     }
 
     result.push({
@@ -121,8 +119,8 @@ function buildExtraBeneficiaries(catIds, creatorIds, startSeq) {
       buildingCapacity: buildCapacities[i % buildCapacities.length],
       incomeSources: buildIncome(incOver),
       financialObligations: buildObligations(oblOver),
+      updateDate,
       nextUpdate,
-      updateDone,
       categoryId,
       status,
       createdById: creatorIds[i % creatorIds.length],

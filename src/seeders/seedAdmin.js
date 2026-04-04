@@ -251,14 +251,14 @@ const seed = async () => {
     console.log("  P2 (كسوة الشتاء) -> family dedup (dependent = beneficiary 3)");
     console.log("  P3 (سلة غذائية)  -> not qualified (cat أ not in [ب,د])");
     console.log("  P4 (إعانة إيجار) -> VALID, can receive");
-    console.log("\nNeed-update filter test data:");
-    console.log("  Core: #1,#2,#3,#5,#6,#8,#9 have nextUpdate within 30 days or passed");
-    console.log("  Extra: indices 0-9 have nextUpdate (0-4 past, 5-9 within 30 days)");
     console.log("\nBuilding ownership samples:");
     console.log("  #2,#7 = charity_house | #3,#8 = developmental_housing");
     console.log("\nSpecial extra beneficiaries:");
     console.log("  30-33: No name | 34-35: Never received disbursement");
     console.log("  36-37: Draft   | 38-39: Pending review");
+    console.log("\nNeed-update test data (nextUpdate within 30 days or past):");
+    console.log("  Core: #1 overdue(-60d), #2(10d), #3(25d), #5 overdue(-15d), #6(today), #8(29d), #9(5d)");
+    console.log("  Extra 0-4: overdue(-90...-50d)  |  Extra 5-9: within 30d (18-42d)");
     console.log("\n");
 
     process.exit(0);

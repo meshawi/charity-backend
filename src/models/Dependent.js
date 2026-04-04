@@ -35,7 +35,7 @@ const Dependent = sequelize.define(
       comment: "تاريخ الميلاد",
     },
     relationship: {
-      type: DataTypes.ENUM("son", "daughter", "other"),
+      type: DataTypes.ENUM("son", "daughter", "wife", "other"),
       allowNull: true,
       comment: "صلة القرابة",
     },

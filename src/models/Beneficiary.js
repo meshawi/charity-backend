@@ -56,6 +56,11 @@ const Beneficiary = sequelize.define(
       allowNull: true,
       comment: "جوال آخر",
     },
+    otherPhoneRelationship: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      comment: "صلة صاحب الجوال الآخر",
+    },
     familyCount: {
       type: DataTypes.INTEGER,
       allowNull: true,
@@ -122,11 +127,7 @@ const Beneficiary = sequelize.define(
       allowNull: true,
       comment: "الزيارات الدينية — الزوج: {hajj,umrah,prophetMosque}",
     },
-    wifeReligious: {
-      type: DataTypes.JSON,
-      allowNull: true,
-      comment: "الزيارات الدينية — الزوجة: {hajj,umrah,prophetMosque}",
-    },
+
     // --- الأثاث والأجهزة والممتلكات (JSON) ---
     furnitureAppliances: {
       type: DataTypes.JSON,
@@ -156,35 +157,25 @@ const Beneficiary = sequelize.define(
       allowNull: true,
       comment: "الأصل",
     },
-    attributes: {
-      type: DataTypes.TEXT,
-      allowNull: true,
-      comment: "الصفات",
-    },
-    enrollment: {
+    researcherName: {
       type: DataTypes.STRING,
       allowNull: true,
-      comment: "الالتحاق",
+      comment: "اسم الباحث",
     },
-    visitDate: {
+    firstVisitDate: {
       type: DataTypes.DATEONLY,
       allowNull: true,
-      comment: "تاريخ الزيارة",
+      comment: "تاريخ الزيارة الأولى",
     },
-    updateDone: {
+    updateDate: {
       type: DataTypes.DATEONLY,
       allowNull: true,
-      comment: "تحديث تم",
+      comment: "تاريخ التحديث",
     },
     nextUpdate: {
       type: DataTypes.DATEONLY,
       allowNull: true,
       comment: "التحديث القادم",
-    },
-    specialDate: {
-      type: DataTypes.DATEONLY,
-      allowNull: true,
-      comment: "تاريخ خاص",
     },
     familySkillsTalents: {
       type: DataTypes.TEXT,
@@ -195,11 +186,6 @@ const Beneficiary = sequelize.define(
       type: DataTypes.TEXT,
       allowNull: true,
       comment: "ملاحظات وتوصيات وشروح الباحث",
-    },
-    notes: {
-      type: DataTypes.TEXT,
-      allowNull: true,
-      comment: "ملاحظات",
     },
     createdById: {
       type: DataTypes.INTEGER,

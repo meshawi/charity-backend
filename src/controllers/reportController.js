@@ -223,40 +223,23 @@ const FILTER_FIELDS = [
   // Religious (JSON)
   {
     key: "husbandReligious.hajj.done",
-    label: "حج الزوج",
+    label: "هل تم تأدية الحج",
     type: "boolean",
     group: "الزيارات الدينية",
   },
   {
     key: "husbandReligious.umrah.done",
-    label: "عمرة الزوج",
+    label: "هل تم تأدية العمرة",
     type: "boolean",
     group: "الزيارات الدينية",
   },
   {
     key: "husbandReligious.prophetMosque.done",
-    label: "المسجد النبوي (الزوج)",
+    label: "هل تمت زيارة المسجد النبوي",
     type: "boolean",
     group: "الزيارات الدينية",
   },
-  {
-    key: "wifeReligious.hajj.done",
-    label: "حج الزوجة",
-    type: "boolean",
-    group: "الزيارات الدينية",
-  },
-  {
-    key: "wifeReligious.umrah.done",
-    label: "عمرة الزوجة",
-    type: "boolean",
-    group: "الزيارات الدينية",
-  },
-  {
-    key: "wifeReligious.prophetMosque.done",
-    label: "المسجد النبوي (الزوجة)",
-    type: "boolean",
-    group: "الزيارات الدينية",
-  },
+
   // Dependent
   {
     key: "dependent.relationship",
@@ -266,6 +249,7 @@ const FILTER_FIELDS = [
     options: [
       { value: "son", label: "ابن" },
       { value: "daughter", label: "ابنة" },
+      { value: "wife", label: "زوجة" },
       { value: "other", label: "أخرى" },
     ],
   },
@@ -754,6 +738,7 @@ const exportBeneficiariesReport = async (req, res, next) => {
       { header: "الفئة", key: "category", width: 12 },
       { header: "الجوال", key: "phone", width: 14 },
       { header: "جوال آخر", key: "otherPhone", width: 14 },
+      { header: "صلة صاحب الجوال الآخر", key: "otherPhoneRelationship", width: 18 },
       { header: "عدد الأسرة", key: "familyCount", width: 10 },
       { header: "عدد التابعين", key: "dependentsCount", width: 10 },
       { header: "الآيبان", key: "iban", width: 28 },
@@ -764,12 +749,12 @@ const exportBeneficiariesReport = async (req, res, next) => {
       { header: "حالة البناء", key: "buildingCondition", width: 14 },
       { header: "اتساع البناء", key: "buildingCapacity", width: 12 },
       // Religious
-      { header: "حج الزوج", key: "husbandHajj", width: 10 },
-      { header: "عمرة الزوج", key: "husbandUmrah", width: 10 },
-      { header: "المسجد النبوي (الزوج)", key: "husbandMosque", width: 16 },
-      { header: "حج الزوجة", key: "wifeHajj", width: 10 },
-      { header: "عمرة الزوجة", key: "wifeUmrah", width: 10 },
-      { header: "المسجد النبوي (الزوجة)", key: "wifeMosque", width: 16 },
+      { header: "هل تم تأدية الحج", key: "husbandHajj", width: 14 },
+      { header: "تاريخ زيارة الحج", key: "husbandHajjDate", width: 14 },
+      { header: "هل تم تأدية العمرة", key: "husbandUmrah", width: 14 },
+      { header: "تاريخ زيارة العمرة", key: "husbandUmrahDate", width: 14 },
+      { header: "هل تمت زيارة المسجد النبوي", key: "husbandMosque", width: 18 },
+      { header: "تاريخ زيارة المسجد النبوي", key: "husbandMosqueDate", width: 18 },
     ];
 
     // Furniture columns (status + notes for each item)
@@ -797,15 +782,12 @@ const exportBeneficiariesReport = async (req, res, next) => {
     benColumns.push(
       { header: "الحالة الصحية", key: "healthStatus", width: 20 },
       { header: "الأصل", key: "origin", width: 14 },
-      { header: "الصفات", key: "attributes", width: 14 },
-      { header: "الالتحاق", key: "enrollment", width: 14 },
-      { header: "تاريخ الزيارة", key: "visitDate", width: 14 },
-      { header: "تحديث تم", key: "updateDone", width: 14 },
+      { header: "اسم الباحث", key: "researcherName", width: 14 },
+      { header: "تاريخ الزيارة الأولى", key: "firstVisitDate", width: 14 },
+      { header: "تاريخ التحديث", key: "updateDate", width: 14 },
       { header: "التحديث القادم", key: "nextUpdate", width: 14 },
-      { header: "تاريخ خاص", key: "specialDate", width: 14 },
       { header: "المهن والمواهب", key: "familySkillsTalents", width: 22 },
-      { header: "ملاحظات الباحث", key: "researcherNotes", width: 22 },
-      { header: "ملاحظات", key: "notes", width: 22 },
+      { header: "ملاحظات وتوصيات الباحث", key: "researcherNotes", width: 22 },
       { header: "عدد التابعين الفعلي", key: "actualDependents", width: 14 },
       { header: "البرامج المستلمة", key: "programs", width: 22 },
       { header: "أنشئ بواسطة", key: "createdBy", width: 14 },
@@ -814,7 +796,6 @@ const exportBeneficiariesReport = async (req, res, next) => {
 
     const benRows = beneficiaries.map((b) => {
       const hr = b.husbandReligious || {};
-      const wr = b.wifeReligious || {};
       const fur = b.furnitureAppliances || {};
       const inc = b.incomeSources || {};
       const obl = b.financialObligations || {};
@@ -834,6 +815,7 @@ const exportBeneficiariesReport = async (req, res, next) => {
         category: b.category?.name || "",
         phone: b.phone || "",
         otherPhone: b.otherPhone || "",
+        otherPhoneRelationship: b.otherPhoneRelationship || "",
         familyCount: b.familyCount ?? "",
         dependentsCount: b.dependentsCount ?? "",
         iban: b.iban || "",
@@ -844,11 +826,11 @@ const exportBeneficiariesReport = async (req, res, next) => {
         buildingCondition: enumLabel("buildingCondition", b.buildingCondition),
         buildingCapacity: enumLabel("buildingCapacity", b.buildingCapacity),
         husbandHajj: hr.hajj?.done ? "نعم" : "لا",
+        husbandHajjDate: hr.hajj?.visitDate || "",
         husbandUmrah: hr.umrah?.done ? "نعم" : "لا",
+        husbandUmrahDate: hr.umrah?.visitDate || "",
         husbandMosque: hr.prophetMosque?.done ? "نعم" : "لا",
-        wifeHajj: wr.hajj?.done ? "نعم" : "لا",
-        wifeUmrah: wr.umrah?.done ? "نعم" : "لا",
-        wifeMosque: wr.prophetMosque?.done ? "نعم" : "لا",
+        husbandMosqueDate: hr.prophetMosque?.visitDate || "",
       };
 
       // Furniture
@@ -880,15 +862,12 @@ const exportBeneficiariesReport = async (req, res, next) => {
 
       row.healthStatus = b.healthStatus || "";
       row.origin = b.origin || "";
-      row.attributes = b.attributes || "";
-      row.enrollment = b.enrollment || "";
-      row.visitDate = b.visitDate || "";
-      row.updateDone = b.updateDone || "";
+      row.researcherName = b.researcherName || "";
+      row.firstVisitDate = b.firstVisitDate || "";
+      row.updateDate = b.updateDate || "";
       row.nextUpdate = b.nextUpdate || "";
-      row.specialDate = b.specialDate || "";
       row.familySkillsTalents = b.familySkillsTalents || "";
       row.researcherNotes = b.researcherNotes || "";
-      row.notes = b.notes || "";
       row.actualDependents = b.dependents?.length || 0;
       row.programs = (b.disbursements || []).map((d) => d.program?.name).filter(Boolean).join("، ");
       row.createdBy = b.createdBy?.name || "";
@@ -916,12 +895,15 @@ const exportBeneficiariesReport = async (req, res, next) => {
       { header: "الحالة التعليمية", key: "educationStatus", width: 14 },
       { header: "الحالة الصحية", key: "healthStatus", width: 20 },
       { header: "حج التابع", key: "depHajj", width: 10 },
+      { header: "تاريخ زيارة الحج", key: "depHajjDate", width: 14 },
       { header: "عمرة التابع", key: "depUmrah", width: 10 },
+      { header: "تاريخ زيارة العمرة", key: "depUmrahDate", width: 14 },
       { header: "المسجد النبوي", key: "depMosque", width: 12 },
+      { header: "تاريخ زيارة المسجد النبوي", key: "depMosqueDate", width: 18 },
       { header: "ملاحظات", key: "notes", width: 22 },
     ];
 
-    const RELATIONSHIP_LABELS = { son: "ابن", daughter: "ابنة", other: "أخرى" };
+    const RELATIONSHIP_LABELS = { son: "ابن", daughter: "ابنة", wife: "زوجة", other: "أخرى" };
     const SCHOOL_TYPE_LABELS = { public: "حكومية", private: "أهلية", other: "أخرى" };
     const EDU_STATUS_LABELS = { enrolled: "مسجل", graduated: "متخرج", dropped_out: "منقطع", not_enrolled: "غير مسجل" };
 
@@ -947,8 +929,11 @@ const exportBeneficiariesReport = async (req, res, next) => {
           educationStatus: EDU_STATUS_LABELS[d.educationStatus] || d.educationStatus || "",
           healthStatus: d.healthStatus || "",
           depHajj: rel.hajj?.done ? "نعم" : "لا",
+          depHajjDate: rel.hajj?.visitDate || "",
           depUmrah: rel.umrah?.done ? "نعم" : "لا",
+          depUmrahDate: rel.umrah?.visitDate || "",
           depMosque: rel.prophetMosque?.done ? "نعم" : "لا",
+          depMosqueDate: rel.prophetMosque?.visitDate || "",
           notes: d.notes || "",
         });
       }
