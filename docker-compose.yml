@@ -9,6 +9,9 @@ services:
       - "3000:3000"
     volumes:
       - charity_documents:/app/documents
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
 volumes:
   charity_documents:
+    name: charity_documents
