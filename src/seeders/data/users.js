@@ -1,16 +1,9 @@
 /**
- * Users seeded for development / demo.
- * Each entry: { email, password, name, nationalId, isSuperAdmin?, roleName }
+ * Dummy users seeded for development / demo.
+ * Super admin is created from ENV variables, not from this file.
+ * Each entry: { email, password, name, nationalId, roleName }
  */
 const users = [
-  {
-    email: "admin@charity.com",
-    password: "admin123",
-    name: "مدير النظام",
-    nationalId: "1234567890",
-    isSuperAdmin: true,
-    roleName: "مدير النظام",
-  },
   {
     email: "users-mgr@charity.com",
     password: "123456",

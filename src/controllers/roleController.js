@@ -1,3 +1,4 @@
+const { Op } = require("sequelize");
 const { Role, Permission } = require("../models");
 const { NotFoundError, ValidationError, AuthorizationError } = require("../utils/errors");
 const { SUPER_ADMIN_ROLE } = require("../utils/constants");
@@ -5,6 +6,7 @@ const { SUPER_ADMIN_ROLE } = require("../utils/constants");
 const getRoles = async (req, res, next) => {
   try {
     const roles = await Role.findAll({
+      where: { name: { [Op.ne]: SUPER_ADMIN_ROLE } },
       include: {
         model: Permission,
         attributes: ["id", "name", "label", "description"],

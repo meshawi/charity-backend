@@ -3,6 +3,7 @@
  * Separated from the main seeder for readability.
  */
 const { buildIncome, buildObligations, buildFurniture } = require("./financialTemplates");
+const categoriesData = require("./categories");
 
 // ── Helper: date string N days from "today" (2026-03-24) ──
 const daysFromNow = (days) => {
@@ -11,16 +12,7 @@ const daysFromNow = (days) => {
   return d.toISOString().split("T")[0];
 };
 
-// ── Categories & Programs metadata (for brevity, wired by index in the seeder) ──
-
-const categoriesData = [
-  { name: "أ", description: "الفئة أ", color: "#3b82f6" },
-  { name: "ب", description: "الفئة ب", color: "#ef4444" },
-  { name: "ت", description: "الفئة ت", color: "#10b981" },
-  { name: "ج", description: "الفئة ج", color: "#f59e0b" },
-  { name: "د", description: "الفئة د", color: "#8b5cf6" },
-  { name: "و", description: "الفئة و", color: "#ec4899" },
-];
+// ── Programs metadata (for brevity, wired by index in the seeder) ──
 
 const programsData = [
   {

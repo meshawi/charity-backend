@@ -31,6 +31,11 @@ const createUser = async (req, res, next) => {
       throw new ValidationError("دور أو أكثر غير صالح");
     }
 
+    // Prevent assigning the system admin role
+    if (roles.some((r) => r.name === SUPER_ADMIN_ROLE)) {
+      throw new AuthorizationError("لا يمكن تعيين دور مدير النظام لمستخدم جديد");
+    }
+
     const user = await User.create({ email, nationalId, password, name });
     await user.addRoles(roles);
 
@@ -128,6 +133,12 @@ const updateUser = async (req, res, next) => {
       if (roles.length !== roleIds.length) {
         throw new ValidationError("دور أو أكثر غير صالح");
       }
+
+      // Prevent assigning the system admin role
+      if (roles.some((r) => r.name === SUPER_ADMIN_ROLE)) {
+        throw new AuthorizationError("لا يمكن تعيين دور مدير النظام");
+      }
+
       await user.setRoles(roles);
     }
 
@@ -173,7 +184,7 @@ const changePassword = async (req, res, next) => {
     // Clear the auth cookie to force logout
     res.clearCookie("token", {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
+      secure: process.env.COOKIE_SECURE === "true",
       sameSite: "strict",
     });
 

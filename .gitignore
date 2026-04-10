@@ -20,6 +20,9 @@ coverage/
 .env.test.local
 .env.production.local
 
+# Organization branding (add your own brand.png)
+src/config/brand.png
+
 # OS files
 .DS_Store
 Thumbs.db

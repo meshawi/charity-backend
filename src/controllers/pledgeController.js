@@ -12,11 +12,16 @@ const {
 const DEFAULT_PLEDGE_TEXT =
   "أتعهد أنا (المستفيد أو من يمثله) بأن جميع المعلومات التي تم الإدلاء بها (الباحث/ ة) في هذه الاستمارة صحيحة وتوافق الواقع وأقر بأنه قد تم إفهامي بأنه في حالة أنه تم اعتمادي كمستحق فإن مصدر ما يتم صرفه لي هو من الصدقات والكفارات والزكاة الشرعية، و إني غير مستفيد في جمعية أخرى وإن تبين خلاف ذلك فإني أتحمل كامل المسؤولية القانونية و الشرعية وعلى ذلك أوقع .";
 
+// Get the current calendar year
+const getCurrentYear = () => new Date().getFullYear();
+
 // Look up beneficiary by national ID or beneficiary number
 const lookupBeneficiary = async (req, res, next) => {
   try {
     const { searchQuery } = req.query;
     if (!searchQuery) throw new ValidationError("يرجى إدخال رقم الهوية أو رقم الملف");
+
+    const currentYear = getCurrentYear();
 
     const beneficiary = await Beneficiary.findOne({
       where: {
@@ -26,26 +31,24 @@ const lookupBeneficiary = async (req, res, next) => {
         ],
       },
       attributes: ["id", "beneficiaryNumber", "name", "nationalId", "phone"],
-      include: [
-        {
-          model: Pledge,
-          as: "pledge",
-          attributes: ["id", "pdfFile", "signedAt"],
-        },
-      ],
     });
 
     if (!beneficiary) {
       return res.json({ success: true, found: false, message: "المستفيد غير موجود" });
     }
 
-    // Already signed — return info + existing PDF reference
-    if (beneficiary.pledge) {
+    // Check if already signed for CURRENT year
+    const currentYearPledge = await Pledge.findOne({
+      where: { beneficiaryId: beneficiary.id, pledgeYear: currentYear },
+      attributes: ["id", "pledgeYear", "pdfFile", "signedAt"],
+    });
+
+    if (currentYearPledge) {
       return res.json({
         success: true,
         found: true,
         alreadySigned: true,
-        message: "المستفيد وقّع الإقرار مسبقاً",
+        message: `المستفيد وقّع الإقرار لعام ${currentYear} مسبقاً`,
         beneficiary: {
           id: beneficiary.id,
           beneficiaryNumber: beneficiary.beneficiaryNumber,
@@ -53,17 +56,19 @@ const lookupBeneficiary = async (req, res, next) => {
           nationalId: beneficiary.nationalId,
         },
         pledge: {
-          id: beneficiary.pledge.id,
-          signedAt: beneficiary.pledge.signedAt,
+          id: currentYearPledge.id,
+          pledgeYear: currentYearPledge.pledgeYear,
+          signedAt: currentYearPledge.signedAt,
         },
       });
     }
 
-    // Not signed yet — return beneficiary info + pledge text
+    // Not signed for current year — return beneficiary info + pledge text
     res.json({
       success: true,
       found: true,
       alreadySigned: false,
+      currentYear,
       beneficiary: {
         id: beneficiary.id,
         beneficiaryNumber: beneficiary.beneficiaryNumber,
@@ -78,7 +83,7 @@ const lookupBeneficiary = async (req, res, next) => {
   }
 };
 
-// Create pledge (sign acknowledgment)
+// Create pledge (sign acknowledgment for current year)
 const createPledge = async (req, res, next) => {
   try {
     const { beneficiaryId, signature } = req.body;
@@ -86,18 +91,22 @@ const createPledge = async (req, res, next) => {
     if (!beneficiaryId) throw new ValidationError("يرجى تحديد المستفيد");
     if (!signature) throw new ValidationError("يرجى التوقيع أولاً");
 
+    const currentYear = getCurrentYear();
+
     const beneficiary = await Beneficiary.findByPk(beneficiaryId, {
       attributes: ["id", "beneficiaryNumber", "name", "nationalId", "phone"],
     });
     if (!beneficiary) throw new NotFoundError("المستفيد غير موجود");
 
-    // Check if already signed
-    const existing = await Pledge.findOne({ where: { beneficiaryId } });
+    // Check if already signed for THIS year
+    const existing = await Pledge.findOne({
+      where: { beneficiaryId, pledgeYear: currentYear },
+    });
     if (existing) {
       return res.status(409).json({
         success: false,
-        message: "المستفيد وقّع الإقرار مسبقاً",
-        pledge: { id: existing.id, signedAt: existing.signedAt },
+        message: `المستفيد وقّع الإقرار لعام ${currentYear} مسبقاً`,
+        pledge: { id: existing.id, pledgeYear: existing.pledgeYear, signedAt: existing.signedAt },
       });
     }
 
@@ -113,6 +122,7 @@ const createPledge = async (req, res, next) => {
         signatureData: signature,
         processedBy,
         signedAt,
+        pledgeYear: currentYear,
       });
     } catch (pdfError) {
       console.error("خطأ في إنشاء PDF الإقرار:", pdfError);
@@ -120,6 +130,7 @@ const createPledge = async (req, res, next) => {
 
     const pledge = await Pledge.create({
       beneficiaryId,
+      pledgeYear: currentYear,
       processedById: req.user.id,
       pledgeText: DEFAULT_PLEDGE_TEXT,
       pdfFile,
@@ -166,11 +177,14 @@ const getPledgePdf = async (req, res, next) => {
   }
 };
 
-// List all pledges (with pagination)
+// List all pledges (with pagination + year filter)
 const getPledges = async (req, res, next) => {
   try {
-    const { page = 1, limit = 20, search } = req.query;
+    const { page = 1, limit = 20, search, year } = req.query;
     const offset = (page - 1) * limit;
+
+    const where = {};
+    if (year) where.pledgeYear = parseInt(year);
 
     const include = [
       {
@@ -191,6 +205,7 @@ const getPledges = async (req, res, next) => {
     ];
 
     const { count, rows } = await Pledge.findAndCountAll({
+      where,
       include,
       order: [["signedAt", "DESC"]],
       limit: parseInt(limit),

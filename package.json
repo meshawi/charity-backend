@@ -6,7 +6,9 @@
   "scripts": {
     "start": "node src/index.js",
     "dev": "nodemon src/index.js",
-    "seed": "node src/seeders/seedAdmin.js"
+    "seed": "node src/seeders/seedAdmin.js",
+    "dummy-seed": "node src/seeders/seedAdmin.js",
+    "infra-seed": "node src/seeders/seedInfra.js"
   },
   "keywords": [],
   "author": "",

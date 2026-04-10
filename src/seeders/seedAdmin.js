@@ -1,9 +1,9 @@
 ﻿/**
- * SYSTEM SEEDER
+ * DUMMY SEEDER
  * Creates permissions, roles, users, field configs, categories, programs,
  * beneficiaries (core + 40 extra), dependents, disbursements.
  *
- * Run with:  node src/seeders/seedAdmin.js
+ * Run with:  npm run dummy-seed
  */
 
 require("dotenv").config();
@@ -36,12 +36,13 @@ const {
   buildCoreDependents,
   buildCoreDisbursements,
 } = require("./data/dummyData");
+const categoriesFromFile = require("./data/categories");
 const { buildExtraBeneficiaries } = require("./data/extraBeneficiaries");
 
 // ------------------------------------------------------------------
 const seed = async () => {
   try {
-    console.log("\n=== Starting system seeder ===\n");
+    console.log("\n=== Starting dummy seeder ===\n");
 
     // Reset DB
     await sequelize.sync({ force: true });
@@ -66,8 +67,30 @@ const seed = async () => {
     const roleMap = Object.fromEntries(createdRoles.map((r) => [r.name, r]));
     console.log(`Created ${createdRoles.length} roles`);
 
-    // 3. Users
-    const createdUsers = [];
+    // 3. Super Admin from ENV
+    const adminEmail = process.env.SUPER_ADMIN_EMAIL;
+    const adminName = process.env.SUPER_ADMIN_NAME;
+    const adminNationalId = process.env.SUPER_ADMIN_NATIONAL_ID;
+    const adminPassword = process.env.SUPER_ADMIN_PASSWORD;
+
+    if (!adminEmail || !adminName || !adminNationalId || !adminPassword) {
+      console.error("\n✗ Super admin ENV vars are required for seeding.");
+      console.error("  Set: SUPER_ADMIN_EMAIL, SUPER_ADMIN_NAME, SUPER_ADMIN_NATIONAL_ID, SUPER_ADMIN_PASSWORD\n");
+      process.exit(1);
+    }
+
+    const superAdmin = await User.create({
+      email: adminEmail,
+      password: adminPassword,
+      name: adminName,
+      nationalId: adminNationalId,
+      isSuperAdmin: true,
+    });
+    const adminRole = roleMap["مدير النظام"];
+    if (adminRole) await superAdmin.addRole(adminRole);
+
+    // 4. Dummy users
+    const createdUsers = [superAdmin];
     for (const u of usersData) {
       const user = await User.create({
         email: u.email,
@@ -80,9 +103,9 @@ const seed = async () => {
       if (role) await user.addRole(role);
       createdUsers.push(user);
     }
-    console.log(`Created ${createdUsers.length} users`);
+    console.log(`Created ${createdUsers.length} users (1 super admin + ${usersData.length} dummy)`);
 
-    // 4. Field configs
+    // 5. Field configs
     const allFieldConfigs = [
       ...beneficiaryFields.map((f) => ({ ...f, fieldGroup: "beneficiary" })),
       ...dependentFields.map((f) => ({ ...f, fieldGroup: "dependent" })),
@@ -92,12 +115,12 @@ const seed = async () => {
     await FieldConfig.bulkCreate(allFieldConfigs);
     console.log(`Created ${allFieldConfigs.length} field configs (${customBeneficiaryFields.length + customDependentFields.length} custom)`);
 
-    // 5. Categories
-    const createdCategories = await Category.bulkCreate(categoriesData);
+    // 6. Categories
+    const createdCategories = await Category.bulkCreate(categoriesFromFile);
     const catIds = createdCategories.map((c) => c.id);
     console.log(`Created ${createdCategories.length} categories`);
 
-    // 6. Programs + category links
+    // 7. Programs + category links
     const createdPrograms = [];
     for (const p of programsData) {
       const prog = await Program.create({
@@ -118,7 +141,7 @@ const seed = async () => {
     const progIds = createdPrograms.map((p) => p.id);
     console.log(`Created ${createdPrograms.length} programs`);
 
-    // 7. Core beneficiaries (9)
+    // 8. Core beneficiaries (9)
     const userIds = createdUsers.map((u) => u.id);
     const coreBenData = buildCoreBeneficiaries(catIds, userIds);
     const createdCoreBen = await Beneficiary.bulkCreate(coreBenData);
@@ -137,7 +160,7 @@ const seed = async () => {
     }));
     await CategoryAssignment.bulkCreate(coreAssignments);
 
-    // 8. Extra historical beneficiaries (40)
+    // 9. Extra historical beneficiaries (40)
     const startSeq = coreBenIds.length + 1; // 10
     const creatorPool = [
       userIds[0], // admin
@@ -167,17 +190,17 @@ const seed = async () => {
     await CategoryAssignment.bulkCreate(extraAssignments);
     console.log(`Created ${coreAssignments.length + extraAssignments.length} category assignments`);
 
-    // 9. Dependents
+    // 10. Dependents
     const dependentsData = buildCoreDependents(coreBenIds);
     await Dependent.bulkCreate(dependentsData);
     console.log(`Created ${dependentsData.length} dependents`);
 
-    // 10. Core disbursements
+    // 11. Core disbursements
     const coreDisb = buildCoreDisbursements(coreBenIds, progIds, userIds);
     await Disbursement.bulkCreate(coreDisb);
     console.log(`Created ${coreDisb.length} core disbursements`);
 
-    // 11. Extra historical disbursements
+    // 12. Extra historical disbursements
     const allProgIds = progIds;
     const distributors = [userIds[0], userIds[3]]; // admin + distributor
     const extraDisbursements = [];
@@ -239,10 +262,10 @@ const seed = async () => {
 
     // -- Summary --
     console.log("\n========================================");
-    console.log("System seeder completed successfully!");
+    console.log("Dummy seeder completed successfully!");
     console.log("========================================\n");
     console.log("Login credentials:");
-    console.log("  Admin:         admin@charity.com / admin123");
+    console.log(`  Super Admin:   ${adminEmail} / (from ENV)`);
     console.log("  Users Mgr:     users-mgr@charity.com / 123456");
     console.log("  Researcher:    researcher@charity.com / 123456");
     console.log("  Distributor:   distributor@charity.com / 123456");

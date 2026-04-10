@@ -58,10 +58,10 @@ CategoryAssignment.belongsTo(Category, { foreignKey: "previousCategoryId", as: "
 CategoryAssignment.belongsTo(User, { foreignKey: "assignedById", as: "assignedBy" });
 Beneficiary.hasMany(CategoryAssignment, { foreignKey: "beneficiaryId", as: "categoryHistory" });
 
-// Pledge associations (one-time acknowledgment)
+// Pledge associations (yearly acknowledgment)
 Pledge.belongsTo(Beneficiary, { foreignKey: "beneficiaryId", as: "beneficiary" });
 Pledge.belongsTo(User, { foreignKey: "processedById", as: "processedBy" });
-Beneficiary.hasOne(Pledge, { foreignKey: "beneficiaryId", as: "pledge" });
+Beneficiary.hasMany(Pledge, { foreignKey: "beneficiaryId", as: "pledges" });
 
 module.exports = {
   sequelize,

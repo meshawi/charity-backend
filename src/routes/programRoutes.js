@@ -4,7 +4,7 @@ const { getPrograms, createProgram, updateProgram, deleteProgram, getProgramBene
 const { authenticate } = require('../middleware/auth');
 const { hasPermission } = require('../middleware/permission');
 
-router.get('/', authenticate, getPrograms);
+router.get('/', authenticate, hasPermission('manage_programs'), getPrograms);
 router.get('/:id/beneficiaries', authenticate, hasPermission('view_profiles'), getProgramBeneficiaries);
 router.post('/', authenticate, hasPermission('manage_programs'), createProgram);
 router.put('/:id', authenticate, hasPermission('manage_programs'), updateProgram);
