@@ -282,14 +282,30 @@ const getCategoryHistory = async (req, res, next) => {
 };
 
 const deleteBeneficiary = async (req, res, next) => {
+  const t = await sequelize.transaction();
   try {
-    const beneficiary = await Beneficiary.findByPk(req.params.id);
-    if (!beneficiary) throw new NotFoundError("المستفيد غير موجود");
+    const beneficiary = await Beneficiary.findByPk(req.params.id, { transaction: t });
+    if (!beneficiary) {
+      await t.rollback();
+      throw new NotFoundError("المستفيد غير موجود");
+    }
 
-    await beneficiary.destroy();
+    // Delete related records that don't have CASCADE
+    await CategoryAssignment.destroy({ where: { beneficiaryId: beneficiary.id }, transaction: t });
+    await Disbursement.destroy({ where: { beneficiaryId: beneficiary.id }, transaction: t });
+    const { Pledge } = require("../models");
+    await Pledge.destroy({ where: { beneficiaryId: beneficiary.id }, transaction: t });
+
+    // Dependents and Documents have CASCADE but explicit delete is safer
+    await Dependent.destroy({ where: { beneficiaryId: beneficiary.id }, transaction: t });
+    await Document.destroy({ where: { beneficiaryId: beneficiary.id }, transaction: t });
+
+    await beneficiary.destroy({ transaction: t });
+    await t.commit();
 
     res.json({ success: true, message: "تم حذف المستفيد" });
   } catch (error) {
+    await t.rollback();
     next(error);
   }
 };

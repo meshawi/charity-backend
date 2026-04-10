@@ -12,6 +12,6 @@ const { hasPermission } = require("../middleware/permission");
 router.get("/lookup", authenticate, hasPermission("process_pledge"), lookupBeneficiary);
 router.post("/", authenticate, hasPermission("process_pledge"), createPledge);
 router.get("/", authenticate, hasPermission("view_pledges"), getPledges);
-router.get("/:id/pdf", authenticate, hasPermission("view_pledges"), getPledgePdf);
+router.get("/:id/pdf", authenticate, hasPermission("view_pledges", "process_pledge"), getPledgePdf);
 
 module.exports = router;

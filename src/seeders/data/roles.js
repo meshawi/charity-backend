@@ -31,7 +31,7 @@ const roles = [
   {
     name: "موزع",
     description: "توزيع البرامج للمستفيدين فقط",
-    permissions: ["process_disbursement", "process_pledge"],
+    permissions: ["process_disbursement", "process_pledge", "view_disbursements", "view_pledges"],
   },
   {
     name: "مدير التقارير",
