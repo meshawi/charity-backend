@@ -1,6 +1,9 @@
 /**
  * Field configuration definitions for beneficiaries and dependents.
  * Controls which fields can be made mandatory via the admin UI.
+ *
+ * System (isCustom: false) fields are seeded here.
+ * Custom fields are created at runtime by the admin.
  */
 const beneficiaryFields = [
   { fieldName: "nationalId", fieldLabel: "رقم الهوية", isRequired: true },
@@ -55,4 +58,96 @@ const dependentFields = [
   { fieldName: "notes", fieldLabel: "ملاحظات" },
 ];
 
-module.exports = { beneficiaryFields, dependentFields };
+// Each system field gets isCustom=false, fieldType="text", isActive=true
+const addDefaults = (field) => ({
+  ...field,
+  isCustom: false,
+  fieldType: "text",
+  isActive: true,
+  isRequired: field.isRequired || false,
+});
+
+// ── Custom fields (admin-created at runtime, seeded here for demo) ──
+
+const customBeneficiaryFields = [
+  {
+    fieldName: "bloodType",
+    fieldLabel: "فصيلة الدم",
+    fieldGroup: "beneficiary",
+    isCustom: true,
+    fieldType: "select",
+    options: ["O+", "O-", "A+", "A-", "B+", "B-", "AB+", "AB-"],
+    isActive: true,
+    isRequired: false,
+  },
+  {
+    fieldName: "chronicDisease",
+    fieldLabel: "مرض مزمن",
+    fieldGroup: "beneficiary",
+    isCustom: true,
+    fieldType: "boolean",
+    options: null,
+    isActive: true,
+    isRequired: false,
+  },
+  {
+    fieldName: "employerName",
+    fieldLabel: "جهة العمل",
+    fieldGroup: "beneficiary",
+    isCustom: true,
+    fieldType: "text",
+    options: null,
+    isActive: true,
+    isRequired: false,
+  },
+  {
+    fieldName: "monthlyRent",
+    fieldLabel: "قيمة الإيجار الشهري",
+    fieldGroup: "beneficiary",
+    isCustom: true,
+    fieldType: "number",
+    options: null,
+    isActive: true,
+    isRequired: false,
+  },
+  {
+    fieldName: "leaseEndDate",
+    fieldLabel: "تاريخ انتهاء عقد الإيجار",
+    fieldGroup: "beneficiary",
+    isCustom: true,
+    fieldType: "date",
+    options: null,
+    isActive: false,
+    isRequired: false,
+  },
+];
+
+const customDependentFields = [
+  {
+    fieldName: "specialNeeds",
+    fieldLabel: "احتياجات خاصة",
+    fieldGroup: "dependent",
+    isCustom: true,
+    fieldType: "boolean",
+    options: null,
+    isActive: true,
+    isRequired: false,
+  },
+  {
+    fieldName: "tutoringSubject",
+    fieldLabel: "مادة التقوية",
+    fieldGroup: "dependent",
+    isCustom: true,
+    fieldType: "text",
+    options: null,
+    isActive: true,
+    isRequired: false,
+  },
+];
+
+module.exports = {
+  beneficiaryFields: beneficiaryFields.map(addDefaults),
+  dependentFields: dependentFields.map(addDefaults),
+  customBeneficiaryFields,
+  customDependentFields,
+};

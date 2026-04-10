@@ -31,12 +31,12 @@ const roles = [
   {
     name: "موزع",
     description: "توزيع البرامج للمستفيدين فقط",
-    permissions: ["process_disbursement"],
+    permissions: ["process_disbursement", "process_pledge"],
   },
   {
     name: "مدير التقارير",
     description: "عرض سجل التوزيعات والتقارير",
-    permissions: ["view_disbursements", "view_reports", "view_profiles"],
+    permissions: ["view_disbursements", "view_reports", "view_profiles", "view_pledges"],
   },
 ];
 

@@ -15,10 +15,11 @@ const PDF_PATH = process.env.PDF_STORAGE_PATH || path.join(DOCUMENTS_BASE, "PDFs
 const REPORTS_PATH = process.env.REPORTS_STORAGE_PATH || path.join(DOCUMENTS_BASE, "Reports");
 const BACKUPS_PATH = process.env.BACKUPS_STORAGE_PATH || path.join(DOCUMENTS_BASE, "Backups");
 const DOCUMENTS_PATH = process.env.DOCUMENTS_STORAGE_PATH || path.join(DOCUMENTS_BASE, "Documents");
+const PLEDGES_PATH = process.env.PLEDGES_STORAGE_PATH || path.join(DOCUMENTS_BASE, "Pledges");
 
 // Ensure all directories exist
 const ensureDirectories = () => {
-  const dirs = [DOCUMENTS_BASE, PDF_PATH, REPORTS_PATH, BACKUPS_PATH, DOCUMENTS_PATH];
+  const dirs = [DOCUMENTS_BASE, PDF_PATH, REPORTS_PATH, BACKUPS_PATH, DOCUMENTS_PATH, PLEDGES_PATH];
   
   dirs.forEach((dir) => {
     if (!fs.existsSync(dir)) {
@@ -106,6 +107,7 @@ module.exports = {
   REPORTS_PATH,
   BACKUPS_PATH,
   DOCUMENTS_PATH,
+  PLEDGES_PATH,
   ensureDirectories,
   cleanOldFiles,
   getStorageStats,

@@ -21,12 +21,13 @@ const {
   Disbursement,
   CategoryAssignment,
   ProgramCategory,
+  Pledge,
 } = require("../models");
 
 // -- Data modules --
 const permissionsData = require("./data/permissions");
 const rolesData = require("./data/roles");
-const { beneficiaryFields, dependentFields } = require("./data/fieldConfigs");
+const { beneficiaryFields, dependentFields, customBeneficiaryFields, customDependentFields } = require("./data/fieldConfigs");
 const usersData = require("./data/users");
 const {
   categoriesData,
@@ -85,9 +86,11 @@ const seed = async () => {
     const allFieldConfigs = [
       ...beneficiaryFields.map((f) => ({ ...f, fieldGroup: "beneficiary" })),
       ...dependentFields.map((f) => ({ ...f, fieldGroup: "dependent" })),
+      ...customBeneficiaryFields,
+      ...customDependentFields,
     ];
     await FieldConfig.bulkCreate(allFieldConfigs);
-    console.log(`Created ${allFieldConfigs.length} field configs`);
+    console.log(`Created ${allFieldConfigs.length} field configs (${customBeneficiaryFields.length + customDependentFields.length} custom)`);
 
     // 5. Categories
     const createdCategories = await Category.bulkCreate(categoriesData);

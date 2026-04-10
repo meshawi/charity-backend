@@ -19,6 +19,8 @@ const permissions = [
   { name: "assign_category", label: "تعيين الفئة", description: "تعيين أو تغيير فئة المستفيد" },
   { name: "view_reports", label: "عرض التقارير", description: "عرض وتصدير التقارير بصيغة Excel" },
   { name: "view_dashboard", label: "عرض لوحة المعلومات", description: "عرض إحصائيات ورسوم بيانية لوحة المعلومات" },
+  { name: "process_pledge", label: "معالجة الإقرارات", description: "إنشاء إقرارات وتعهدات المستفيدين وتوقيعها" },
+  { name: "view_pledges", label: "عرض الإقرارات", description: "عرض سجل الإقرارات وتحميل ملفاتها" },
 ];
 
 module.exports = permissions;

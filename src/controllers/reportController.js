@@ -9,6 +9,7 @@ const {
   Category,
   Program,
   Disbursement,
+  FieldConfig,
   sequelize,
 } = require("../models");
 const { ValidationError } = require("../utils/errors");
@@ -902,6 +903,7 @@ const exportBeneficiariesReport = async (req, res, next) => {
       row.programs = (b.disbursements || []).map((d) => d.program?.name).filter(Boolean).join("، ");
       row.createdBy = b.createdBy?.name || "";
       row.createdAt = new Date(b.createdAt).toLocaleString("ar-SA");
+      row._customFields = b.customFields || {};
 
       return row;
     });
@@ -967,7 +969,37 @@ const exportBeneficiariesReport = async (req, res, next) => {
           depMosque: rel.prophetMosque?.done ? "نعم" : "لا",
           depMosqueDate: rel.prophetMosque?.visitDate || "",
           notes: d.notes || "",
+          _customFields: d.customFields || {},
         });
+      }
+    }
+
+    // ── Dynamic custom field columns ──
+    const customBenFields = await FieldConfig.findAll({
+      where: { fieldGroup: "beneficiary", isCustom: true, isActive: true },
+      order: [["fieldLabel", "ASC"]],
+    });
+    const customDepFields = await FieldConfig.findAll({
+      where: { fieldGroup: "dependent", isCustom: true, isActive: true },
+      order: [["fieldLabel", "ASC"]],
+    });
+
+    for (const cf of customBenFields) {
+      benColumns.push({ header: cf.fieldLabel, key: `cf_${cf.fieldName}`, width: 18 });
+    }
+    for (const row of benRows) {
+      const src = row._customFields || {};
+      for (const cf of customBenFields) {
+        row[`cf_${cf.fieldName}`] = src[cf.fieldName] ?? "";
+      }
+    }
+    for (const cf of customDepFields) {
+      depColumns.push({ header: cf.fieldLabel, key: `cf_${cf.fieldName}`, width: 18 });
+    }
+    for (const row of depRows) {
+      const src = row._customFields || {};
+      for (const cf of customDepFields) {
+        row[`cf_${cf.fieldName}`] = src[cf.fieldName] ?? "";
       }
     }
 

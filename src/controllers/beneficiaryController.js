@@ -308,33 +308,44 @@ const submitForReview = async (req, res, next) => {
 
     // Validate all mandatory beneficiary fields
     const requiredBenFields = await FieldConfig.findAll({
-      where: { fieldGroup: "beneficiary", isRequired: true },
+      where: { fieldGroup: "beneficiary", isRequired: true, isActive: true },
     });
 
     const missingFields = [];
     for (const fc of requiredBenFields) {
-      const val = beneficiary[fc.fieldName];
+      let val;
+      if (fc.isCustom) {
+        val = (beneficiary.customFields || {})[fc.fieldName];
+      } else {
+        val = beneficiary[fc.fieldName];
+      }
       if (val === null || val === undefined || val === "") {
-        missingFields.push({ fieldName: fc.fieldName, fieldLabel: fc.fieldLabel });
+        missingFields.push({ fieldName: fc.fieldName, fieldLabel: fc.fieldLabel, isCustom: fc.isCustom });
       }
     }
 
     // Validate all mandatory dependent fields
     const requiredDepFields = await FieldConfig.findAll({
-      where: { fieldGroup: "dependent", isRequired: true },
+      where: { fieldGroup: "dependent", isRequired: true, isActive: true },
     });
 
     const dependentMissing = [];
     if (requiredDepFields.length > 0 && beneficiary.dependents) {
       for (const dep of beneficiary.dependents) {
         for (const fc of requiredDepFields) {
-          const val = dep[fc.fieldName];
+          let val;
+          if (fc.isCustom) {
+            val = (dep.customFields || {})[fc.fieldName];
+          } else {
+            val = dep[fc.fieldName];
+          }
           if (val === null || val === undefined || val === "") {
             dependentMissing.push({
               dependentId: dep.id,
               dependentName: dep.name || "بدون اسم",
               fieldName: fc.fieldName,
               fieldLabel: fc.fieldLabel,
+              isCustom: fc.isCustom,
             });
           }
         }
@@ -428,7 +439,7 @@ const getBeneficiaryProgress = async (req, res, next) => {
     if (!beneficiary) throw new NotFoundError("المستفيد غير موجود");
 
     const requiredBenFields = await FieldConfig.findAll({
-      where: { fieldGroup: "beneficiary", isRequired: true },
+      where: { fieldGroup: "beneficiary", isRequired: true, isActive: true },
     });
 
     const totalRequired = requiredBenFields.length;
@@ -436,11 +447,16 @@ const getBeneficiaryProgress = async (req, res, next) => {
     const pendingFields = [];
 
     for (const fc of requiredBenFields) {
-      const val = beneficiary[fc.fieldName];
+      let val;
+      if (fc.isCustom) {
+        val = (beneficiary.customFields || {})[fc.fieldName];
+      } else {
+        val = beneficiary[fc.fieldName];
+      }
       if (val !== null && val !== undefined && val !== "") {
         filledCount++;
       } else {
-        pendingFields.push({ fieldName: fc.fieldName, fieldLabel: fc.fieldLabel });
+        pendingFields.push({ fieldName: fc.fieldName, fieldLabel: fc.fieldLabel, isCustom: fc.isCustom });
       }
     }
 

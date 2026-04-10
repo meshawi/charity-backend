@@ -37,6 +37,7 @@ services:
       PDF_STORAGE_PATH: /app/documents/PDFs
       REPORTS_STORAGE_PATH: /app/documents/Reports
       BACKUPS_PATH: /app/documents/Backups
+      PLEDGES_STORAGE_PATH: /app/documents/Pledges
     ports:
       - "3000:3000"
     volumes:

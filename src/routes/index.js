@@ -12,6 +12,7 @@ const disbursementRoutes = require("./disbursementRoutes");
 const roleRoutes = require("./roleRoutes");
 const reportRoutes = require("./reportRoutes");
 const dashboardRoutes = require("./dashboardRoutes");
+const pledgeRoutes = require("./pledgeRoutes");
 
 router.use("/auth", authRoutes);
 router.use("/users", userRoutes);
@@ -25,5 +26,6 @@ router.use("/disbursements", disbursementRoutes);
 router.use("/roles", roleRoutes);
 router.use("/reports", reportRoutes);
 router.use("/dashboard", dashboardRoutes);
+router.use("/pledges", pledgeRoutes);
 
 module.exports = router;

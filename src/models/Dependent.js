@@ -104,6 +104,12 @@ const Dependent = sequelize.define(
       allowNull: true,
       comment: "ملاحظات",
     },
+    customFields: {
+      type: DataTypes.JSON,
+      allowNull: true,
+      defaultValue: {},
+      comment: "حقول مخصصة أضافها المدير — {fieldName: value}",
+    },
   },
   {
     timestamps: true,

@@ -122,6 +122,12 @@ const buildCoreBeneficiaries = (catIds, userIds) => {
       healthCondition: "healthy",
       healthStatus: null,
       familySkillsTalents: "الأب يعمل في الصيانة العامة",
+      customFields: {
+        bloodType: "O+",
+        chronicDisease: false,
+        employerName: "أعمال حرة",
+        monthlyRent: 2000,
+      },
       // updateDate already passed, nextUpdate overdue
       updateDate: "2025-01-10",
       nextUpdate: daysFromNow(-60),
@@ -150,6 +156,11 @@ const buildCoreBeneficiaries = (catIds, userIds) => {
       buildingCapacity: "medium",
       incomeSources: buildIncome({ modernSocialSecurity: { monthly: 2000 } }),
       financialObligations: buildObligations({ rent: { monthly: 1500 } }),
+      customFields: {
+        bloodType: "A-",
+        chronicDisease: true,
+        monthlyRent: 1500,
+      },
       updateDate: "2025-09-01",
       nextUpdate: daysFromNow(10),
       categoryId: catIds[1],
@@ -182,6 +193,12 @@ const buildCoreBeneficiaries = (catIds, userIds) => {
         disabilityAid: { monthly: 500 },
       }),
       financialObligations: buildObligations({ rent: { monthly: 2500 } }),
+      customFields: {
+        bloodType: "B+",
+        chronicDisease: true,
+        employerName: "متقاعد",
+        monthlyRent: 2500,
+      },
       updateDate: "2025-10-01",
       nextUpdate: daysFromNow(25),
       categoryId: catIds[0],
@@ -211,6 +228,11 @@ const buildCoreBeneficiaries = (catIds, userIds) => {
         citizenAccount: { monthly: 900 },
       }),
       financialObligations: buildObligations({ rent: { monthly: 1800 } }),
+      customFields: {
+        bloodType: "AB+",
+        chronicDisease: false,
+        monthlyRent: 1800,
+      },
       updateDate: "2026-01-15",
       nextUpdate: daysFromNow(120),
       categoryId: catIds[2],
@@ -246,6 +268,12 @@ const buildCoreBeneficiaries = (catIds, userIds) => {
         pension: { monthly: 500 },
       }),
       financialObligations: buildObligations({ rent: { monthly: 1200 } }),
+      customFields: {
+        bloodType: "O-",
+        chronicDisease: false,
+        employerName: "متقاعد عسكري",
+        monthlyRent: 1200,
+      },
       updateDate: "2025-06-01",
       nextUpdate: daysFromNow(-15),
       categoryId: catIds[3],
@@ -272,6 +300,12 @@ const buildCoreBeneficiaries = (catIds, userIds) => {
       buildingCapacity: "sufficient",
       incomeSources: buildIncome({ salary: { monthly: 3000 } }),
       financialObligations: buildObligations({ rent: { monthly: 2200 } }),
+      customFields: {
+        bloodType: "A+",
+        chronicDisease: false,
+        employerName: "وزارة الصحة",
+        monthlyRent: 2200,
+      },
       updateDate: "2025-11-01",
       nextUpdate: daysFromNow(0),
       categoryId: catIds[4],
@@ -397,15 +431,15 @@ const buildCoreBeneficiaries = (catIds, userIds) => {
 
 const buildCoreDependents = (benIds) => [
   // Beneficiary 1
-  { beneficiaryId: benIds[0], name: "سعد عبدالله الغامدي", nationalId: "1198765001", gender: "male", dateOfBirth: "2007-05-12", relationship: "son", educationStatus: "enrolled", schoolName: "ثانوية الملك فهد", schoolGrade: "ثالث ثانوي", schoolType: "public", academicGrade: "جيد جداً", religious: { hajj: { done: false }, umrah: { done: true, visitDate: "2024-02-15" }, prophetMosque: { done: true, visitDate: "2024-02-17" } } },
-  { beneficiaryId: benIds[0], name: "ريم عبدالله الغامدي", nationalId: "1198765002", gender: "female", dateOfBirth: "2011-08-03", relationship: "daughter", educationStatus: "enrolled", schoolName: "متوسطة النور", schoolGrade: "ثاني متوسط", schoolType: "public", academicGrade: "ممتاز", weaknessSubjects: "الرياضيات" },
+  { beneficiaryId: benIds[0], name: "سعد عبدالله الغامدي", nationalId: "1198765001", gender: "male", dateOfBirth: "2007-05-12", relationship: "son", educationStatus: "enrolled", schoolName: "ثانوية الملك فهد", schoolGrade: "ثالث ثانوي", schoolType: "public", academicGrade: "جيد جداً", religious: { hajj: { done: false }, umrah: { done: true, visitDate: "2024-02-15" }, prophetMosque: { done: true, visitDate: "2024-02-17" } }, customFields: { specialNeeds: false, tutoringSubject: "الرياضيات" } },
+  { beneficiaryId: benIds[0], name: "ريم عبدالله الغامدي", nationalId: "1198765002", gender: "female", dateOfBirth: "2011-08-03", relationship: "daughter", educationStatus: "enrolled", schoolName: "متوسطة النور", schoolGrade: "ثاني متوسط", schoolType: "public", academicGrade: "ممتاز", weaknessSubjects: "الرياضيات", customFields: { specialNeeds: false, tutoringSubject: "الرياضيات" } },
   { beneficiaryId: benIds[0], name: "خالد عبدالله الغامدي", nationalId: "1198765003", gender: "male", dateOfBirth: "2015-01-20", relationship: "son", educationStatus: "enrolled", schoolName: "ابتدائية الأمل", schoolGrade: "رابع ابتدائي", schoolType: "public", academicGrade: "جيد" },
   // Beneficiary 2
   { beneficiaryId: benIds[1], name: "أحمد فاطمة العتيبي", nationalId: "1198765004", gender: "male", dateOfBirth: "2009-03-10", relationship: "son", educationStatus: "enrolled" },
   { beneficiaryId: benIds[1], name: "سارة فاطمة العتيبي", nationalId: "1198765005", gender: "female", dateOfBirth: "2013-06-15", relationship: "daughter", educationStatus: "enrolled", dependentMaritalStatus: "عزباء" },
   // Beneficiary 3
   { beneficiaryId: benIds[2], name: "عمر صالح الدوسري", nationalId: "1198765006", gender: "male", dateOfBirth: "2003-10-08", relationship: "son", educationStatus: "graduated", dependentMaritalStatus: "أعزب", religious: { hajj: { done: true, visitDate: "2018-08-20" }, umrah: { done: true, visitDate: "2023-11-05" }, prophetMosque: { done: false } } },
-  { beneficiaryId: benIds[2], name: "هند صالح الدوسري", nationalId: "1198765007", gender: "female", dateOfBirth: "2005-04-22", relationship: "daughter", educationStatus: "enrolled", healthCondition: "unhealthy", healthStatus: "حالة مستقرة" },
+  { beneficiaryId: benIds[2], name: "هند صالح الدوسري", nationalId: "1198765007", gender: "female", dateOfBirth: "2005-04-22", relationship: "daughter", educationStatus: "enrolled", healthCondition: "unhealthy", healthStatus: "حالة مستقرة", customFields: { specialNeeds: true, tutoringSubject: "العلوم" } },
   { beneficiaryId: benIds[2], name: "ماجد صالح الدوسري", nationalId: "1198765008", gender: "male", dateOfBirth: "2010-12-01", relationship: "son", educationStatus: "enrolled", weaknessSubjects: "اللغة الإنجليزية" },
   // Beneficiary 4
   { beneficiaryId: benIds[3], name: "لمى نورة القحطاني", nationalId: "1198765009", gender: "female", dateOfBirth: "2017-07-30", relationship: "daughter", educationStatus: "enrolled", schoolType: "public" },

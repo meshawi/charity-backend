@@ -30,7 +30,8 @@ COPY . .
 RUN mkdir -p /app/documents/PDFs \
     /app/documents/Reports \
     /app/documents/Backups \
-    /app/documents/Documents
+    /app/documents/Documents \
+    /app/documents/Pledges
 
 EXPOSE 3000
 

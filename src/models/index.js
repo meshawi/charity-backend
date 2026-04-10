@@ -13,6 +13,7 @@ const Document = require("./Document");
 const Disbursement = require("./Disbursement");
 const FieldConfig = require("./FieldConfig");
 const CategoryAssignment = require("./CategoryAssignment");
+const Pledge = require("./Pledge");
 
 // Role - Permission (Many-to-Many)
 Role.belongsToMany(Permission, { through: RolePermission, foreignKey: "roleId" });
@@ -57,6 +58,11 @@ CategoryAssignment.belongsTo(Category, { foreignKey: "previousCategoryId", as: "
 CategoryAssignment.belongsTo(User, { foreignKey: "assignedById", as: "assignedBy" });
 Beneficiary.hasMany(CategoryAssignment, { foreignKey: "beneficiaryId", as: "categoryHistory" });
 
+// Pledge associations (one-time acknowledgment)
+Pledge.belongsTo(Beneficiary, { foreignKey: "beneficiaryId", as: "beneficiary" });
+Pledge.belongsTo(User, { foreignKey: "processedById", as: "processedBy" });
+Beneficiary.hasOne(Pledge, { foreignKey: "beneficiaryId", as: "pledge" });
+
 module.exports = {
   sequelize,
   User,
@@ -73,4 +79,5 @@ module.exports = {
   Disbursement,
   FieldConfig,
   CategoryAssignment,
+  Pledge,
 };

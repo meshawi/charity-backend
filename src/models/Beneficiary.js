@@ -214,6 +214,12 @@ const Beneficiary = sequelize.define(
       allowNull: true,
       comment: "ملاحظة الإرجاع من لجنة المراجعة",
     },
+    customFields: {
+      type: DataTypes.JSON,
+      allowNull: true,
+      defaultValue: {},
+      comment: "حقول مخصصة أضافها المدير — {fieldName: value}",
+    },
   },
   {
     timestamps: true,
