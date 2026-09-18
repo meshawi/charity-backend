@@ -20,6 +20,11 @@ ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 
 WORKDIR /app
 
+# Store uploads and generated PDFs in /app/documents, which docker-compose mounts
+# as the persistent "charity_documents" volume. Without this the app falls back to
+# /tmp/charity-storage inside the container, which is lost whenever it is recreated.
+ENV DOCUMENTS_BASE_PATH=/app/documents
+
 COPY package*.json ./
 
 RUN npm install --production
