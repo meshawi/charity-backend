@@ -22,6 +22,7 @@ const {
   CategoryAssignment,
   ProgramCategory,
   Pledge,
+  School,
 } = require("../models");
 
 // -- Data modules --
@@ -194,6 +195,15 @@ const seed = async () => {
     const dependentsData = buildCoreDependents(coreBenIds);
     await Dependent.bulkCreate(dependentsData);
     console.log(`Created ${dependentsData.length} dependents`);
+
+    // Schools list: every school used by the dummy dependents, plus a couple not in use yet
+    const schoolNames = [
+      ...new Set(dependentsData.map((d) => d.schoolName).filter(Boolean)),
+      "متوسطة الطرف",
+      "ثانوية الجشة",
+    ];
+    await School.bulkCreate(schoolNames.map((name) => ({ name })));
+    console.log(`Created ${schoolNames.length} schools`);
 
     // 11. Core disbursements
     const coreDisb = buildCoreDisbursements(coreBenIds, progIds, userIds);

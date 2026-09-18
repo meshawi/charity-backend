@@ -2,6 +2,7 @@ const { Dependent, Beneficiary, FieldConfig } = require("../models");
 const { NotFoundError, ValidationError } = require("../utils/errors");
 const { calculateAge } = require("../utils/ageHelper");
 const { getChangedFields, sendBackToReview } = require("../utils/reviewWorkflow");
+const { assertSchoolAllowed } = require("./schoolController");
 
 const getDependents = async (req, res, next) => {
   try {
@@ -46,6 +47,8 @@ const createDependent = async (req, res, next) => {
       }
     }
 
+    await assertSchoolAllowed(req.body.schoolName);
+
     const dependent = await Dependent.create({
       ...req.body,
       beneficiaryId: parseInt(beneficiaryId),
@@ -67,6 +70,8 @@ const updateDependent = async (req, res, next) => {
   try {
     const dependent = await Dependent.findByPk(req.params.dependentId);
     if (!dependent) throw new NotFoundError("التابع غير موجود");
+
+    await assertSchoolAllowed(req.body.schoolName, dependent.schoolName);
 
     const hasChanges = getChangedFields(dependent, req.body).length > 0;
 

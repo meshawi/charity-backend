@@ -13,6 +13,7 @@ const roleRoutes = require("./roleRoutes");
 const reportRoutes = require("./reportRoutes");
 const dashboardRoutes = require("./dashboardRoutes");
 const pledgeRoutes = require("./pledgeRoutes");
+const schoolRoutes = require("./schoolRoutes");
 
 router.use("/auth", authRoutes);
 router.use("/users", userRoutes);
@@ -27,5 +28,6 @@ router.use("/roles", roleRoutes);
 router.use("/reports", reportRoutes);
 router.use("/dashboard", dashboardRoutes);
 router.use("/pledges", pledgeRoutes);
+router.use("/schools", schoolRoutes);
 
 module.exports = router;

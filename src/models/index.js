@@ -14,6 +14,7 @@ const Disbursement = require("./Disbursement");
 const FieldConfig = require("./FieldConfig");
 const CategoryAssignment = require("./CategoryAssignment");
 const Pledge = require("./Pledge");
+const School = require("./School");
 
 // Role - Permission (Many-to-Many)
 Role.belongsToMany(Permission, { through: RolePermission, foreignKey: "roleId" });
@@ -80,4 +81,5 @@ module.exports = {
   FieldConfig,
   CategoryAssignment,
   Pledge,
+  School,
 };
