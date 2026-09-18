@@ -7,6 +7,7 @@ const routes = require('./routes');
 const errorHandler = require('./middleware/errorHandler');
 const logger = require('./utils/logger');
 const { ensureDirectories } = require('./config/storage');
+const { applySchemaUpdates } = require('./utils/schemaUpdates');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -78,6 +79,7 @@ const start = async () => {
     logger.info('Database connected successfully');
     
     await sequelize.sync();
+    await applySchemaUpdates(sequelize);
     logger.info('Models synchronized');
 
     await ensureSuperAdmin();

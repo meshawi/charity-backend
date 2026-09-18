@@ -5,23 +5,14 @@ const { Document, Beneficiary, User } = require("../models");
 const { NotFoundError, ValidationError } = require("../utils/errors");
 const { DOCUMENTS_PATH, ensureDirectories } = require("../config/storage");
 const { sendBackToReview } = require("../utils/reviewWorkflow");
+const { DOCUMENT_TYPES, OTHER_DOCUMENT_TYPE } = require("../utils/constants");
 
-// Fixed document types
-const DOCUMENT_TYPES = [
-  { key: "association_research", label: "بحث الجمعيات" },
-  { key: "national_id", label: "الهوية الوطنية" },
-  { key: "family_card", label: "كرت العائلة" },
-  { key: "residence_proof", label: "إثبات سكن" },
-  { key: "absher_data", label: "بيانات أبشر" },
-  { key: "support_deed", label: "صك إعالة" },
-  { key: "social_security_statement", label: "مشهد من الضمان (موضح فيه التابعين مبلغ الدعم)" },
-  { key: "citizen_account_page", label: "صفحة حساب المواطن (موضح مبلغ الدعم)" },
-  { key: "alimony_deed", label: "صك نفقة" },
-  { key: "divorce_deed", label: "صك طلاق" },
-  { key: "rehabilitation_statement", label: "مشهد من التأهيل الشامل" },
-  { key: "monthly_income_cert", label: "تعريف بالدخل الشهري (التأمينات)" },
-  { key: "medical_report", label: "تقرير طبي" },
-];
+const MAX_TITLE_LENGTH = 150;
+
+// Delete an uploaded file that ended up not being attached to a record
+const discardUpload = (file) => {
+  if (file && fs.existsSync(file.path)) fs.unlinkSync(file.path);
+};
 
 const VALID_DOC_TYPES = new Set(DOCUMENT_TYPES.map((d) => d.key));
 
@@ -63,36 +54,50 @@ const uploadMiddleware = upload.single("file");
 
 // Upload or replace a document
 const uploadDocument = async (req, res, next) => {
+  let recordSaved = false;
   try {
     const { beneficiaryId } = req.params;
     const { type } = req.body;
+    const isOther = type === OTHER_DOCUMENT_TYPE;
+    const title = isOther ? (req.body.title || "").trim() : null;
+    const notes = (req.body.notes || "").trim() || null;
 
     if (!type) throw new ValidationError("نوع المستند مطلوب");
     if (!VALID_DOC_TYPES.has(type)) throw new ValidationError("نوع المستند غير صالح");
     if (!req.file) throw new ValidationError("الملف مطلوب");
+    if (isOther && !title) throw new ValidationError("عنوان المستند مطلوب عند اختيار (أخرى)");
+    if (isOther && title.length > MAX_TITLE_LENGTH) {
+      throw new ValidationError(`عنوان المستند يجب ألا يتجاوز ${MAX_TITLE_LENGTH} حرفاً`);
+    }
 
     const beneficiary = await Beneficiary.findByPk(beneficiaryId);
     if (!beneficiary) throw new NotFoundError("المستفيد غير موجود");
 
-    // Check if a document of same type exists (replace it)
-    const existing = await Document.findOne({
-      where: { beneficiaryId, type },
-    });
+    const originalName = Document.fixFilenameEncoding(req.file.originalname);
+
+    // Fixed types hold one document each (a new upload replaces it);
+    // "other" documents are told apart by title, so they are always added.
+    const existing = isOther
+      ? null
+      : await Document.findOne({ where: { beneficiaryId, type } });
 
     if (existing) {
-      // Delete old file from disk
       const oldPath = path.join(DOCUMENTS_PATH, String(beneficiaryId), existing.filename);
-      if (fs.existsSync(oldPath)) {
-        fs.unlinkSync(oldPath);
-      }
 
       await existing.update({
+        notes,
         filename: req.file.filename,
-        originalName: req.file.originalname,
+        originalName,
         mimeType: req.file.mimetype,
         size: req.file.size,
         uploadedById: req.user.id,
       });
+      recordSaved = true;
+
+      // Delete the old file only once the record points at the new one
+      if (fs.existsSync(oldPath)) {
+        fs.unlinkSync(oldPath);
+      }
 
       const sentToReview = await sendBackToReview(beneficiary);
 
@@ -103,17 +108,22 @@ const uploadDocument = async (req, res, next) => {
     const document = await Document.create({
       beneficiaryId: parseInt(beneficiaryId),
       type,
+      title,
+      notes,
       filename: req.file.filename,
-      originalName: req.file.originalname,
+      originalName,
       mimeType: req.file.mimetype,
       size: req.file.size,
       uploadedById: req.user.id,
     });
+    recordSaved = true;
 
     const sentToReview = await sendBackToReview(beneficiary);
 
     res.status(201).json({ success: true, document, sentToReview });
   } catch (error) {
+    // Multer writes the file before validation runs — don't leave it orphaned
+    if (!recordSaved) discardUpload(req.file);
     next(error);
   }
 };
