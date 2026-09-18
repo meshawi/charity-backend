@@ -3,11 +3,11 @@ const path = require("path");
 const { PLEDGES_PATH } = require("../config/storage");
 const {
   getLogoBase64,
-  formatDateArabic,
   formatTimeArabic,
   renderPdf,
   BASE_CSS,
 } = require("./pdfShared");
+const { formatHijriNumeric, formatGregorianNumeric } = require("./hijri");
 
 // Ensure pledges directory exists
 if (!fs.existsSync(PLEDGES_PATH)) {
@@ -24,7 +24,8 @@ const generatePledgeHtml = ({
   pledgeYear,
 }) => {
   const logoBase64 = getLogoBase64();
-  const dateStr = formatDateArabic(signedAt);
+  const hijriDateStr = formatHijriNumeric(signedAt);
+  const gregorianDateStr = formatGregorianNumeric(signedAt);
   const timeStr = formatTimeArabic(signedAt);
 
   const employeeInfo = processedBy.nationalId
@@ -161,7 +162,8 @@ const generatePledgeHtml = ({
         <div class="signature-label">توقيع المستفيد</div>
       </div>
       <div class="date-card">
-        <div><strong>التاريخ:</strong> ${dateStr}</div>
+        <div><strong>التاريخ الهجري:</strong> ${hijriDateStr} هـ</div>
+        <div><strong>التاريخ الميلادي:</strong> ${gregorianDateStr} م</div>
         <div><strong>الوقت:</strong> ${timeStr}</div>
       </div>
     </div>

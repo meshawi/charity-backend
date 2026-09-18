@@ -1,5 +1,6 @@
 const { Op } = require("sequelize");
 const { Beneficiary, Disbursement, Dependent } = require("../models");
+const { formatDualDate } = require("./hijri");
 
 /**
  * Check if a beneficiary or any family member has already received from a program.
@@ -13,7 +14,7 @@ const checkFamilyEligibility = async (beneficiary, programId) => {
   if (existing) {
     return {
       blocked: true,
-      reason: `تم الصرف مسبقاً بتاريخ ${new Date(existing.disbursedAt).toLocaleDateString("ar-SA")}`,
+      reason: `تم الصرف مسبقاً بتاريخ ${formatDualDate(existing.disbursedAt)}`,
     };
   }
 

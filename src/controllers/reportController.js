@@ -13,7 +13,7 @@ const {
   sequelize,
 } = require("../models");
 const { ValidationError } = require("../utils/errors");
-const { createExcelBuffer } = require("../utils/excelHelper");
+const { createExcelBuffer, withHijriColumns } = require("../utils/excelHelper");
 const { calculateAge } = require("../utils/ageHelper");
 const { buildPagination } = require("../utils/pagination");
 
@@ -902,7 +902,7 @@ const exportBeneficiariesReport = async (req, res, next) => {
       row.actualDependents = b.dependents?.length || 0;
       row.programs = (b.disbursements || []).map((d) => d.program?.name).filter(Boolean).join("، ");
       row.createdBy = b.createdBy?.name || "";
-      row.createdAt = new Date(b.createdAt).toLocaleString("ar-SA");
+      row.createdAt = new Date(b.createdAt);
       row._customFields = b.customFields || {};
 
       return row;
@@ -1003,9 +1003,32 @@ const exportBeneficiariesReport = async (req, res, next) => {
       }
     }
 
+    // ── Hijri twin for every date column ──
+    const customDateKeys = (fields) =>
+      fields.filter((cf) => cf.fieldType === "date").map((cf) => `cf_${cf.fieldName}`);
+
+    const benSheetColumns = withHijriColumns(benColumns, benRows, [
+      "dateOfBirth",
+      "husbandHajjDate",
+      "husbandUmrahDate",
+      "husbandMosqueDate",
+      "firstVisitDate",
+      "updateDate",
+      "nextUpdate",
+      "createdAt",
+      ...customDateKeys(customBenFields),
+    ]);
+    const depSheetColumns = withHijriColumns(depColumns, depRows, [
+      "dateOfBirth",
+      "depHajjDate",
+      "depUmrahDate",
+      "depMosqueDate",
+      ...customDateKeys(customDepFields),
+    ]);
+
     const buffer = await createExcelBuffer([
-      { name: "المستفيدين", columns: benColumns, rows: benRows },
-      { name: "التابعين", columns: depColumns, rows: depRows },
+      { name: "المستفيدين", columns: benSheetColumns, rows: benRows },
+      { name: "التابعين", columns: depSheetColumns, rows: depRows },
     ]);
 
     const fileName = `تقرير_المستفيدين_${Date.now()}.xlsx`;
@@ -1095,15 +1118,23 @@ const exportProgramsReport = async (req, res, next) => {
           nationalId: d.beneficiary?.nationalId || "",
           employee: d.disbursedBy?.name || "",
           receiver: d.receiverName || "صاحب الملف",
-          date: new Date(d.disbursedAt).toLocaleString("ar-SA"),
+          date: new Date(d.disbursedAt),
           notes: d.notes || "",
         });
       }
     }
 
     const buffer = await createExcelBuffer([
-      { name: "ملخص البرامج", columns: summaryColumns, rows: summaryRows },
-      { name: "تفاصيل التوزيعات", columns: detailColumns, rows: detailRows },
+      {
+        name: "ملخص البرامج",
+        columns: withHijriColumns(summaryColumns, summaryRows, ["startDate", "endDate"]),
+        rows: summaryRows,
+      },
+      {
+        name: "تفاصيل التوزيعات",
+        columns: withHijriColumns(detailColumns, detailRows, ["date"]),
+        rows: detailRows,
+      },
     ]);
 
     const fileName = `تقرير_البرامج_${Date.now()}.xlsx`;
@@ -1200,13 +1231,17 @@ const exportEmployeesReport = async (req, res, next) => {
       beneficiaryName: d.beneficiary?.name || "",
       nationalId: d.beneficiary?.nationalId || "",
       receiver: d.receiverName || "صاحب الملف",
-      date: new Date(d.disbursedAt).toLocaleString("ar-SA"),
+      date: new Date(d.disbursedAt),
       notes: d.notes || "",
     }));
 
     const buffer = await createExcelBuffer([
       { name: "ملخص الموظفين", columns: summaryColumns, rows: summaryRows },
-      { name: "تفاصيل التوزيعات", columns: detailColumns, rows: detailRows },
+      {
+        name: "تفاصيل التوزيعات",
+        columns: withHijriColumns(detailColumns, detailRows, ["date"]),
+        rows: detailRows,
+      },
     ]);
 
     const fileName = `تقرير_الموظفين_${Date.now()}.xlsx`;

@@ -1,4 +1,5 @@
 const ExcelJS = require("exceljs");
+const { toHijriISO, formatGregorianDateTime } = require("./hijri");
 
 /**
  * Create an Excel workbook with RTL sheets.
@@ -32,4 +33,31 @@ const createExcelBuffer = async (sheets) => {
   return workbook.xlsx.writeBuffer();
 };
 
-module.exports = { createExcelBuffer };
+/**
+ * Give every date column a Hijri twin placed right after it.
+ * Row values may be "YYYY-MM-DD" strings (date-only fields) or Date objects
+ * (timestamps, written out as Riyadh local time). Rows are updated in place.
+ * @returns {Array} the new column list
+ */
+const withHijriColumns = (columns, rows, dateKeys) => {
+  const keys = new Set(dateKeys);
+
+  for (const row of rows) {
+    for (const key of keys) {
+      const value = row[key];
+      row[`${key}_hijri`] = toHijriISO(value);
+      if (value instanceof Date) row[key] = formatGregorianDateTime(value);
+    }
+  }
+
+  return columns.flatMap((col) =>
+    keys.has(col.key)
+      ? [
+          { ...col, header: `${col.header} (ميلادي)` },
+          { ...col, header: `${col.header} (هجري)`, key: `${col.key}_hijri` },
+        ]
+      : [col]
+  );
+};
+
+module.exports = { createExcelBuffer, withHijriColumns };

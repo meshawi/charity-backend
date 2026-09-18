@@ -7,6 +7,7 @@ const {
   formatTimeArabic,
   renderPdf,
 } = require("./pdfShared");
+const { formatHijriNumeric, formatGregorianNumeric } = require("./hijri");
 
 // Use centralized PDF storage path
 const ACKNOWLEDGMENTS_DIR = PDF_PATH;
@@ -34,7 +35,8 @@ const generateAcknowledgmentHtml = ({
     ? formatDateArabic(program.endDate)
     : "مستمر";
 
-  const disbursedAtDate = formatDateArabic(disbursement.disbursedAt);
+  const disbursedAtHijri = formatHijriNumeric(disbursement.disbursedAt);
+  const disbursedAtGregorian = formatGregorianNumeric(disbursement.disbursedAt);
   const disbursedAtTime = formatTimeArabic(disbursement.disbursedAt);
 
   const receiverText = disbursement.receiverName
@@ -217,7 +219,7 @@ const generateAcknowledgmentHtml = ({
         <td class="lbl">اسم البرنامج</td>
         <td class="val hi">${program.name}</td>
         <td class="lbl">فترة البرنامج</td>
-        <td class="val" colspan="3">${startDateStr} - ${endDateStr}</td>
+        <td class="val" colspan="3">من: ${startDateStr}<br>إلى: ${endDateStr}</td>
       </tr>
       <tr>
         <td class="lbl">الاسم الكامل</td>
@@ -264,7 +266,8 @@ const generateAcknowledgmentHtml = ({
         <div class="sig-label">توقيع المستفيد / المستلم</div>
       </div>
       <div class="date-box">
-        <div><strong>التاريخ:</strong> ${disbursedAtDate}</div>
+        <div><strong>التاريخ الهجري:</strong> ${disbursedAtHijri} هـ</div>
+        <div><strong>التاريخ الميلادي:</strong> ${disbursedAtGregorian} م</div>
         <div><strong>الوقت:</strong> ${disbursedAtTime}</div>
       </div>
     </div>

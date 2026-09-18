@@ -1,6 +1,7 @@
 const puppeteer = require("puppeteer");
 const fs = require("fs");
 const path = require("path");
+const { formatDualDate } = require("./hijri");
 
 // Path to brand logo
 const BRAND_LOGO_PATH = path.join(__dirname, "../config/brand.png");
@@ -18,22 +19,9 @@ const getLogoBase64 = () => {
   return null;
 };
 
-// Format date in Arabic (Asia/Riyadh = UTC+3)
-const formatDateArabic = (date) => {
-  if (!date) return "";
-  const d = new Date(date);
-  // Use Intl to get Riyadh-local date parts
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone: "Asia/Riyadh",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).formatToParts(d);
-  const day = parts.find((p) => p.type === "day").value;
-  const month = parts.find((p) => p.type === "month").value;
-  const year = parts.find((p) => p.type === "year").value;
-  return `${day}/${month}/${year}`;
-};
+// Format date in both calendars (Asia/Riyadh = UTC+3)
+// "03/10/1447 هـ - 22/03/2026 م"
+const formatDateArabic = (date) => formatDualDate(date);
 
 // Format time in Arabic (Asia/Riyadh = UTC+3)
 const formatTimeArabic = (date) => {
