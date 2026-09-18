@@ -14,6 +14,7 @@ const {
 const { NotFoundError, ValidationError } = require("../utils/errors");
 const { calculateAge } = require("../utils/ageHelper");
 const { buildPagination } = require("../utils/pagination");
+const { getChangedFields, sendBackToReview } = require("../utils/reviewWorkflow");
 
 // Helper: add age to beneficiary JSON
 const addAge = (beneficiary) => {
@@ -206,9 +207,14 @@ const updateBeneficiary = async (req, res, next) => {
     // Status cannot be changed through update — use submit/review endpoints
     const { categoryId, status, returnNote, ...safeBody } = req.body;
 
+    const hasChanges = getChangedFields(beneficiary, safeBody).length > 0;
+
     await beneficiary.update(safeBody);
 
-    res.json({ success: true, beneficiary });
+    // An approved file that was edited goes back to the review committee
+    const sentToReview = hasChanges && (await sendBackToReview(beneficiary));
+
+    res.json({ success: true, beneficiary, sentToReview });
   } catch (error) {
     next(error);
   }

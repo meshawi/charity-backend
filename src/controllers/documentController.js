@@ -4,6 +4,7 @@ const multer = require("multer");
 const { Document, Beneficiary, User } = require("../models");
 const { NotFoundError, ValidationError } = require("../utils/errors");
 const { DOCUMENTS_PATH, ensureDirectories } = require("../config/storage");
+const { sendBackToReview } = require("../utils/reviewWorkflow");
 
 // Fixed document types
 const DOCUMENT_TYPES = [
@@ -93,7 +94,9 @@ const uploadDocument = async (req, res, next) => {
         uploadedById: req.user.id,
       });
 
-      return res.json({ success: true, document: existing, replaced: true });
+      const sentToReview = await sendBackToReview(beneficiary);
+
+      return res.json({ success: true, document: existing, replaced: true, sentToReview });
     }
 
     // Create new document record
@@ -107,7 +110,9 @@ const uploadDocument = async (req, res, next) => {
       uploadedById: req.user.id,
     });
 
-    res.status(201).json({ success: true, document });
+    const sentToReview = await sendBackToReview(beneficiary);
+
+    res.status(201).json({ success: true, document, sentToReview });
   } catch (error) {
     next(error);
   }
@@ -147,7 +152,9 @@ const deleteDocument = async (req, res, next) => {
 
     await document.destroy();
 
-    res.json({ success: true, message: "تم حذف المستند" });
+    const sentToReview = await sendBackToReview(await Beneficiary.findByPk(document.beneficiaryId));
+
+    res.json({ success: true, message: "تم حذف المستند", sentToReview });
   } catch (error) {
     next(error);
   }

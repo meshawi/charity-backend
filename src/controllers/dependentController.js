@@ -1,6 +1,7 @@
 const { Dependent, Beneficiary, FieldConfig } = require("../models");
 const { NotFoundError, ValidationError } = require("../utils/errors");
 const { calculateAge } = require("../utils/ageHelper");
+const { getChangedFields, sendBackToReview } = require("../utils/reviewWorkflow");
 
 const getDependents = async (req, res, next) => {
   try {
@@ -54,7 +55,9 @@ const createDependent = async (req, res, next) => {
     const count = await Dependent.count({ where: { beneficiaryId } });
     await beneficiary.update({ dependentsCount: count });
 
-    res.status(201).json({ success: true, dependent });
+    const sentToReview = await sendBackToReview(beneficiary);
+
+    res.status(201).json({ success: true, dependent, sentToReview });
   } catch (error) {
     next(error);
   }
@@ -65,9 +68,14 @@ const updateDependent = async (req, res, next) => {
     const dependent = await Dependent.findByPk(req.params.dependentId);
     if (!dependent) throw new NotFoundError("التابع غير موجود");
 
+    const hasChanges = getChangedFields(dependent, req.body).length > 0;
+
     await dependent.update(req.body);
 
-    res.json({ success: true, dependent });
+    const sentToReview =
+      hasChanges && (await sendBackToReview(await Beneficiary.findByPk(dependent.beneficiaryId)));
+
+    res.json({ success: true, dependent, sentToReview });
   } catch (error) {
     next(error);
   }
@@ -85,7 +93,9 @@ const deleteDependent = async (req, res, next) => {
     const count = await Dependent.count({ where: { beneficiaryId } });
     await Beneficiary.update({ dependentsCount: count }, { where: { id: beneficiaryId } });
 
-    res.json({ success: true, message: "تم حذف التابع" });
+    const sentToReview = await sendBackToReview(await Beneficiary.findByPk(beneficiaryId));
+
+    res.json({ success: true, message: "تم حذف التابع", sentToReview });
   } catch (error) {
     next(error);
   }
